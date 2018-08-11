@@ -44,13 +44,14 @@ pub enum Direction {
 }
 
 impl Direction {
-    fn parse(mut key: message_wire::MessageKey) -> Result<Direction> {
+    fn parse(msg: &mut message_wire::WebMessageInfo) -> Result<Direction> {
+        let mut key = msg.take_key();
         let remote_jid = Jid::from_str(&key.take_remoteJid())?;
         Ok(if key.get_fromMe() {
             Direction::Sending(remote_jid)
         } else {
-            Direction::Receiving(if key.has_participant() {
-                Peer::Group { group: remote_jid, participant: Jid::from_str(&key.take_participant())? }
+            Direction::Receiving(if msg.has_participant() {
+                Peer::Group { group: remote_jid, participant: Jid::from_str(&msg.take_participant())? }
             } else {
                 Peer::Individual(remote_jid)
             })
@@ -234,11 +235,9 @@ impl ChatMessage {
 
     pub fn from_proto(mut webmessage: message_wire::WebMessageInfo) -> Result<ChatMessage> {
         debug!("Processing WebMessageInfo: {:?}", &webmessage);
-        let mut key = webmessage.take_key();
-
         Ok(ChatMessage {
-            id: MessageId(key.take_id()),
-            direction: Direction::parse(key)?,
+            id: MessageId(webmessage.mut_key().take_id()),
+            direction: Direction::parse(&mut webmessage)?,
             time: NaiveDateTime::from_timestamp(webmessage.get_messageTimestamp() as i64, 0),
             content: ChatMessageContent::from_proto(webmessage.take_message())?,
         })
