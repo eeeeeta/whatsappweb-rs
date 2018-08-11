@@ -366,7 +366,7 @@ impl Chat {
             name: node.take_attribute("name").map(|name| name.into_string()).ok(),
             jid: node.take_attribute("jid")?.into_jid()?,
             last_activity: node.take_attribute("t")?.into_string().parse().map_err(|_| "NAN")?,
-            spam: node.take_attribute("spam")?.into_string().parse().map_err(|_| "NAN")?,
+            spam: node.take_attribute("spam").ok().and_then(|t| t.into_string().parse().ok()).unwrap_or(false),
             mute_until: node.take_attribute("mute").ok().and_then(|t| t.into_string().parse().ok()),
             pin_time: node.take_attribute("pin").ok().and_then(|t| t.into_string().parse().ok()),
             read_only: node.take_attribute("read_only").ok().and_then(|read_only| read_only.into_string().parse().ok()).unwrap_or(false),
