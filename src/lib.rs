@@ -37,7 +37,7 @@ use std::str::FromStr;
 use errors::*;
 
 
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Clone, PartialOrd, PartialEq, Ord, Eq, Hash)]
 pub struct Jid {
     id: String,
     pub is_group: bool,
@@ -120,15 +120,15 @@ pub enum PresenceStatus {
     Recording,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GroupMetadata {
-    creation_time: i64,
-    id: Jid,
-    owner: Option<Jid>,
-    participants: Vec<(Jid, bool)>,
-    subject: String,
-    subject_owner: Jid,
-    subject_time: i64,
+    pub creation_time: i64,
+    pub id: Jid,
+    pub owner: Option<Jid>,
+    pub participants: Vec<(Jid, bool)>,
+    pub subject: String,
+    pub subject_owner: Jid,
+    pub subject_time: i64,
 }
 
 #[derive(Debug, Copy, Clone)]
