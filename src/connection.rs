@@ -513,7 +513,10 @@ impl<H: WhatsappWebHandler<H> + Send + Sync> WhatsappWebConnection<H> {
                                     AppEvent::BlockProfile { .. } => unreachable!(),
                                 }
                             }
-                        }
+                        },
+                        Err(e) => {
+                            warn!("failed to deserialize appmessage: {}", e);
+                        },
                         _ => {}
                     }
                 }
