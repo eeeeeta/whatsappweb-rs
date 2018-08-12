@@ -178,6 +178,9 @@ impl ChatMessageContent {
                 size: document_message.get_fileLength() as usize,
                 key: document_message.take_mediaKey(),
             }, document_message.take_fileName())
+        } else if message.has_extendedTextMessage() {
+            let mut etm = message.take_extendedTextMessage();
+            ChatMessageContent::Text(etm.take_text())
         } else {
             ChatMessageContent::Text("TODO".to_string())
         })
