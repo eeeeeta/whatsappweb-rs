@@ -141,6 +141,7 @@ pub enum ChatMessageContent {
     Text(String),
     Image(FileInfo, (u32, u32), Vec<u8>),
     Audio(FileInfo, Duration),
+    Video(FileInfo, Duration),
     Document(FileInfo, String),
     Unimplemented(String)
 }
@@ -169,6 +170,16 @@ impl ChatMessageContent {
                 size: audio_message.get_fileLength() as usize,
                 key: audio_message.take_mediaKey(),
             }, Duration::new(u64::from(audio_message.get_seconds()), 0))
+        } else if message.has_videoMessage() {
+            let mut video_message = message.take_videoMessage();
+            ChatMessageContent::Video(FileInfo {
+                url: video_message.take_url(),
+                mime: video_message.take_mimetype(),
+                sha256: video_message.take_fileSha256(),
+                enc_sha256: video_message.take_fileEncSha256(),
+                size: video_message.get_fileLength() as usize,
+                key: video_message.take_mediaKey(),
+            }, Duration::new(u64::from(video_message.get_seconds()), 0))
         } else if message.has_documentMessage() {
             let mut document_message = message.take_documentMessage();
             ChatMessageContent::Document(FileInfo {
