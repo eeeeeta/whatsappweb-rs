@@ -142,6 +142,7 @@ pub enum ChatMessageContent {
     Image(FileInfo, (u32, u32), Vec<u8>),
     Audio(FileInfo, Duration),
     Document(FileInfo, String),
+    Unimplemented(String)
 }
 
 impl ChatMessageContent {
@@ -182,7 +183,7 @@ impl ChatMessageContent {
             let mut etm = message.take_extendedTextMessage();
             ChatMessageContent::Text(etm.take_text())
         } else {
-            ChatMessageContent::Text("TODO".to_string())
+            ChatMessageContent::Unimplemented(format!("{:?}", message))
         })
     }
 
