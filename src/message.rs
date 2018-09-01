@@ -139,9 +139,9 @@ pub struct FileInfo {
 #[derive(Debug)]
 pub enum ChatMessageContent {
     Text(String),
-    Image(FileInfo, (u32, u32), Vec<u8>),
+    Image(FileInfo, (u32, u32), Vec<u8>, Option<String>),
     Audio(FileInfo, Duration),
-    Video(FileInfo, Duration),
+    Video(FileInfo, Duration, Option<String>),
     Document(FileInfo, String),
     Unimplemented(String)
 }
@@ -152,6 +152,12 @@ impl ChatMessageContent {
             ChatMessageContent::Text(message.take_conversation())
         } else if message.has_imageMessage() {
             let mut image_message = message.take_imageMessage();
+            let caption = if image_message.has_caption() {
+                Some(image_message.take_caption())
+            }
+            else {
+                None
+            };
             ChatMessageContent::Image(FileInfo {
                 url: image_message.take_url(),
                 mime: image_message.take_mimetype(),
@@ -159,7 +165,7 @@ impl ChatMessageContent {
                 enc_sha256: image_message.take_fileEncSha256(),
                 size: image_message.get_fileLength() as usize,
                 key: image_message.take_mediaKey(),
-            }, (image_message.get_height(), image_message.get_width()), image_message.take_jpegThumbnail())
+            }, (image_message.get_height(), image_message.get_width()), image_message.take_jpegThumbnail(), caption)
         } else if message.has_audioMessage() {
             let mut audio_message = message.take_audioMessage();
             ChatMessageContent::Audio(FileInfo {
@@ -172,6 +178,12 @@ impl ChatMessageContent {
             }, Duration::new(u64::from(audio_message.get_seconds()), 0))
         } else if message.has_videoMessage() {
             let mut video_message = message.take_videoMessage();
+            let caption = if video_message.has_caption() {
+                Some(video_message.take_caption())
+            }
+            else {
+                None
+            };
             ChatMessageContent::Video(FileInfo {
                 url: video_message.take_url(),
                 mime: video_message.take_mimetype(),
@@ -179,7 +191,7 @@ impl ChatMessageContent {
                 enc_sha256: video_message.take_fileEncSha256(),
                 size: video_message.get_fileLength() as usize,
                 key: video_message.take_mediaKey(),
-            }, Duration::new(u64::from(video_message.get_seconds()), 0))
+            }, Duration::new(u64::from(video_message.get_seconds()), 0), caption)
         } else if message.has_documentMessage() {
             let mut document_message = message.take_documentMessage();
             ChatMessageContent::Document(FileInfo {
@@ -202,7 +214,7 @@ impl ChatMessageContent {
         let mut message = message_wire::Message::new();
         match self {
             ChatMessageContent::Text(text) => message.set_conversation(text),
-            ChatMessageContent::Image(info, size, thumbnail) => {
+            ChatMessageContent::Image(info, size, thumbnail, caption) => {
                 let mut image_message = message_wire::ImageMessage::new();
                 image_message.set_url(info.url);
                 image_message.set_mimetype(info.mime);
@@ -213,6 +225,9 @@ impl ChatMessageContent {
                 image_message.set_height(size.0);
                 image_message.set_width(size.1);
                 image_message.set_jpegThumbnail(thumbnail);
+                if let Some(caption) = caption {
+                    image_message.set_caption(caption);
+                }
                 message.set_imageMessage(image_message);
             }
             ChatMessageContent::Document(info, filename) => {
