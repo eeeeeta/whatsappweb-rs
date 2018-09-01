@@ -147,6 +147,13 @@ pub enum ChatMessageContent {
 }
 
 impl ChatMessageContent {
+    pub fn take_caption(&mut self) -> Option<String> {
+        match *self {
+            ChatMessageContent::Image(_, _, _, ref mut c) => c.take(),
+            ChatMessageContent::Video(_, _, ref mut c) => c.take(),
+            _ => None
+        }
+    }
     fn from_proto(mut message: message_wire::Message) -> Result<ChatMessageContent> {
         Ok(if message.has_conversation() {
             ChatMessageContent::Text(message.take_conversation())
