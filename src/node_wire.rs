@@ -456,7 +456,10 @@ impl Jid {
                 "g.us" => true,
                 "s.whatsapp.net" => false,
                 "broadcast" => false, //Todo
-                _ => bail! {"invalid jid surfix {}", surfix}
+                _ => {
+                    warn!("Invalid jid surfix {}", surfix);
+                    false
+                }, // FIXME
             },
         })
     }
