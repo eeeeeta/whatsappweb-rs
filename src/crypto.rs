@@ -16,8 +16,7 @@ pub(crate) fn generate_keypair() -> (agreement::EphemeralPrivateKey, Vec<u8>) {
     let my_private_key =
         agreement::EphemeralPrivateKey::generate(&agreement::X25519, &rng).unwrap();
 
-    let mut my_public_key = vec![0u8; my_private_key.public_key_len()];
-    my_private_key.compute_public_key(&mut my_public_key).unwrap();
+    let my_public_key: Vec<u8> = my_private_key.compute_public_key().unwrap().as_ref().to_owned();
 
     (my_private_key, my_public_key)
 }
