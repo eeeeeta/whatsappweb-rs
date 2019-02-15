@@ -73,6 +73,9 @@ pub enum UserData {
     MessageAck(MessageAck),
     GroupIntroduce { newly_created: bool, inducer: Jid, meta: GroupMetadata },
     GroupParticipantsChange { group: Jid, change: GroupParticipantsChange, inducer: Option<Jid>, participants: Vec<Jid> },
+    GroupSubjectChange { group: Jid, subject: String, subject_time: NaiveDateTime, subject_owner: Jid },
+    PictureChange { jid: Jid, removed: bool },
+    StatusChange(Jid, String),
     /// Batterylevel which is submitted by the app
     Battery(u8)
 }
@@ -472,6 +475,19 @@ impl<H: WhatsappWebHandler<H> + Send + Sync> WhatsappWebConnection<H> {
                         Ok(ServerMessage::GroupParticipantsChange { group, change, inducer, participants }) => {
                             drop(inner);
                             self.handler.on_user_data_changed(self, UserData::GroupParticipantsChange { group, change, inducer, participants });
+                        }
+                        Ok(ServerMessage::StatusChange(jid, status)) => {
+                            drop(inner);
+                            self.handler.on_user_data_changed(self, UserData::StatusChange(jid, status));
+                        }
+                        Ok(ServerMessage::PictureChange { jid, removed }) => {
+                            drop(inner);
+                            self.handler.on_user_data_changed(self, UserData::PictureChange { jid, removed });
+                        }
+                        Ok(ServerMessage::GroupSubjectChange { group, subject, subject_time, subject_owner }) => {
+                            drop(inner);
+                            let subject_time = NaiveDateTime::from_timestamp(subject_time, 0);
+                            self.handler.on_user_data_changed(self, UserData::GroupSubjectChange { group, subject, subject_time, subject_owner });
                         }
                         _ => {}
                     }
