@@ -95,7 +95,7 @@ impl FromStr for Jid {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Contact {
     ///name used in phonebook, set by user
     pub name: Option<String>,
@@ -104,7 +104,7 @@ pub struct Contact {
     pub jid: Jid,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Chat {
     pub name: Option<String>,
     pub jid: Jid,
