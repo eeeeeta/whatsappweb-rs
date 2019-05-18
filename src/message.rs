@@ -265,7 +265,7 @@ pub struct ChatMessage {
 
 impl ChatMessage {
     pub fn from_proto_binary(content: &[u8]) -> Result<ChatMessage> {
-        let webmessage = protobuf::parse_from_bytes::<message_wire::WebMessageInfo>(content).chain_err(|| "Invalid Protobuf chatmessage")?;
+        let webmessage = protobuf::parse_from_bytes::<message_wire::WebMessageInfo>(content).map_err(|_| "Invalid Protobuf chatmessage")?;
         ChatMessage::from_proto(webmessage)
     }
 

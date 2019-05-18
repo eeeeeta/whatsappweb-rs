@@ -51,7 +51,7 @@ impl<'a> ServerMessage<'a> {
                     "picture" => {
                         ServerMessage::PictureChange { jid: Jid::from_str(payload.get_str("jid")?)?, removed: payload["tag"] == "removed" }
                     }
-                    _ => bail! { "invalid or unsupported 'Cmd' subcommand type {}", cmd_type}
+                    _ => bail_untyped! { "invalid or unsupported 'Cmd' subcommand type {}", cmd_type}
                 }
             }
             "Chat" => {
@@ -111,7 +111,7 @@ impl<'a> ServerMessage<'a> {
                             subject_time: subject_json.get_i64("s_t")?
                         }
                     }
-                    _ => bail! { "invalid or unsupported 'Chat' subcommand type {}", cmd_type}
+                    _ => bail_untyped! { "invalid or unsupported 'Chat' subcommand type {}", cmd_type}
                 }
             }
             "Msg" | "MsgInfo" => {
@@ -133,7 +133,7 @@ impl<'a> ServerMessage<'a> {
                         time: payload.get_i64("t")?,
                         level: MessageAckLevel::from_json(payload.get_u8("ack")?)?
                     },
-                    _ => bail! { "invalid or unsupported 'Msg' or 'MsgInfo' subcommand type {}", cmd_type}
+                    _ => bail_untyped! { "invalid or unsupported 'Msg' or 'MsgInfo' subcommand type {}", cmd_type}
                 }
             }
             "Presence" => {
@@ -146,7 +146,7 @@ impl<'a> ServerMessage<'a> {
             "Status" => {
                 ServerMessage::StatusChange(Jid::from_str(payload.get_str("id")?)?, payload.get_str("status")?.to_string())
             }
-            _ => bail! { "invalid or unsupported opcode {}", opcode}
+            _ => bail_untyped! { "invalid or unsupported opcode {}", opcode}
         })
     }
 }
@@ -159,7 +159,7 @@ impl MessageAckLevel {
             2 => MessageAckLevel::Received,
             3 => MessageAckLevel::Read,
             4 => MessageAckLevel::Played,
-            _ => bail! {"Invalid message ack level {}", value}
+            _ => bail_untyped! {"Invalid message ack level {}", value}
         })
     }
 }
@@ -171,7 +171,7 @@ impl PresenceStatus {
             "available" => PresenceStatus::Available,
             "composing" => PresenceStatus::Typing,
             "recording" => PresenceStatus::Recording,
-            _ => bail! {"Invalid presence status {}", value}
+            _ => bail_untyped! {"Invalid presence status {}", value}
         })
     }
 }
@@ -203,7 +203,7 @@ impl GroupParticipantsChange {
             "remove" => GroupParticipantsChange::Remove,
             "promote" => GroupParticipantsChange::Promote,
             "demote" => GroupParticipantsChange::Demote,
-            _ => bail! {"invalid group command {}", value}
+            _ => bail_untyped! {"invalid group command {}", value}
         })
     }
 }
@@ -212,7 +212,7 @@ pub fn parse_response_status(response: &JsonValue) -> Result<()> {
     response["status"].as_u16().map_or(Ok(()), |status_code| if status_code == 200 {
         Ok(())
     } else {
-        bail! {"received status code {}", status_code}
+        bail_untyped! {"received status code {}", status_code}
     })
 }
 
@@ -285,18 +285,18 @@ pub trait JsonNonNull {
 
 impl JsonNonNull for JsonValue {
     fn get_str<'a>(&'a self, field: &'static str) -> Result<&'a str> {
-        self[field].as_str().ok_or_else(|| ErrorKind::JsonFieldMissing(field).into())
+        self[field].as_str().ok_or_else(|| WaError::JsonFieldMissing(field).into())
     }
 
     fn get_i64<'a>(&'a self, field: &'static str) -> Result<i64> {
-        self[field].as_i64().ok_or_else(|| ErrorKind::JsonFieldMissing(field).into())
+        self[field].as_i64().ok_or_else(|| WaError::JsonFieldMissing(field).into())
     }
 
     fn get_u8<'a>(&'a self, field: &'static str) -> Result<u8> {
-        self[field].as_u8().ok_or_else(|| ErrorKind::JsonFieldMissing(field).into())
+        self[field].as_u8().ok_or_else(|| WaError::JsonFieldMissing(field).into())
     }
 
     fn get_bool<'a>(&'a self, field: &'static str) -> Result<bool> {
-        self[field].as_bool().ok_or_else(|| ErrorKind::JsonFieldMissing(field).into())
+        self[field].as_bool().ok_or_else(|| WaError::JsonFieldMissing(field).into())
     }
 }

@@ -1,5 +1,4 @@
 extern crate ws;
-extern crate simple_logger;
 #[macro_use]
 extern crate log;
 extern crate url;
@@ -8,6 +7,7 @@ extern crate json;
 extern crate ring;
 extern crate base64;
 extern crate qrcode;
+#[cfg(feature = "media")]
 extern crate image;
 extern crate untrusted;
 #[macro_use]
@@ -17,10 +17,13 @@ extern crate protobuf;
 extern crate byteorder;
 extern crate chrono;
 #[macro_use]
-extern crate error_chain;
+extern crate failure;
+extern crate failure_derive;
 #[cfg(feature = "media")]
 extern crate reqwest;
 
+#[macro_use]
+pub mod errors;
 pub mod connection;
 pub mod message;
 #[cfg(feature = "media")]
@@ -32,7 +35,6 @@ mod json_protocol;
 mod websocket_protocol;
 pub mod crypto;
 mod timeout;
-pub mod errors;
 
 use std::str::FromStr;
 
@@ -74,7 +76,7 @@ impl Jid {
 }
 
 impl FromStr for Jid {
-    type Err = Error;
+    type Err = errors::WaError;
 
     fn from_str(jid: &str) -> Result<Jid> {
         let at = jid.find('@').ok_or("jid missing @")?;

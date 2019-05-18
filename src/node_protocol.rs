@@ -90,7 +90,7 @@ impl AppMessage {
                                 if let NodeContent::Binary(ref content) = node.content {
                                     app_events.push(AppEvent::Message(Box::new(ChatMessage::from_proto_binary(content)?)));
                                 } else {
-                                    bail!{ "invalid nodetype for chatmessage" }
+                                    bail_untyped!{ "invalid nodetype for chatmessage" }
                                 }
                             }
                             "received" => {
@@ -132,7 +132,7 @@ impl AppMessage {
 
                     Ok(AppMessage::MessagesEvents(event_type, app_events))
                 } else {
-                    bail!{ "invalid or unsupported action type"}
+                    bail_untyped!{ "invalid or unsupported action type"}
                 }
             }
             "response" => {
@@ -146,7 +146,7 @@ impl AppMessage {
 
                             Ok(AppMessage::Contacts(contacts))
                         } else {
-                            bail!{ "Invalid nodetype for contacts"}
+                            bail_untyped!{ "Invalid nodetype for contacts"}
                         }
                     }
                     "chat" => {
@@ -158,13 +158,13 @@ impl AppMessage {
 
                             Ok(AppMessage::Chats(chats))
                         } else {
-                            bail!{ "Invalid nodetype for chats"}
+                            bail_untyped!{ "Invalid nodetype for chats"}
                         }
                     }
-                    _ =>  bail!{ "invalid or unsupported 'response' type"}
+                    _ =>  bail_untyped!{ "invalid or unsupported 'response' type"}
                 }
             }
-            _ => bail!{ "invalid or unsupported app message type"}
+            _ => bail_untyped!{ "invalid or unsupported app message type"}
         }
     }
     pub fn serialize(self, epoch: u32) -> Node {
@@ -338,15 +338,15 @@ pub fn parse_message_response(root_node: Node) -> Result<Vec<ChatMessage>> {
                 if let NodeContent::Binary(ref content) = node.content {
                     messages.push(ChatMessage::from_proto_binary(content)?);
                 } else {
-                    bail!{ "invalid nodetype for chatmessage" }
+                    bail_untyped!{ "invalid nodetype for chatmessage" }
                 }
             }
             Ok(messages)
         } else {
-            bail!{ "invalid nodetype for chatmessage" }
+            bail_untyped!{ "invalid nodetype for chatmessage" }
         }
     } else {
-        bail!{ "invalid response" }
+        bail_untyped!{ "invalid response" }
     }
 }
 
@@ -380,7 +380,7 @@ impl MessageAckLevel {
             "message" => MessageAckLevel::Received,
             "played" => MessageAckLevel::Played,
             "read" => MessageAckLevel::Read,
-            _ => bail!{"invalid message ack level {}", value}
+            _ => bail_untyped!{"invalid message ack level {}", value}
         })
     }
     #[allow(dead_code)]
@@ -401,7 +401,7 @@ impl MessageEventType {
             "before" => MessageEventType::Before,
             "relay" => MessageEventType::Relay,
             "set" => MessageEventType::Set,
-            _ => bail!{"invalid message event type {}", value}
+            _ => bail_untyped!{"invalid message event type {}", value}
         })
     }
 }
@@ -439,7 +439,7 @@ impl ChatAction {
                     ChatAction::Unmute
                 }
             }
-            _ => bail!{ "invalid or unsupported chat action type"}
+            _ => bail_untyped!{ "invalid or unsupported chat action type"}
         })
     }
 }

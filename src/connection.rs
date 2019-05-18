@@ -187,14 +187,14 @@ impl<H: WhatsappWebHandler<H> + Send + Sync + 'static> WhatsappWebConnectionInne
         if let SessionState::Established { ref persistent_session } = self.session_state {
             crypto::verify_and_decrypt_message(&persistent_session.enc[..], &persistent_session.mac[..], &encrypted_message)
         } else {
-          bail!{"connection not established yet"}
+          bail_untyped!{"connection not established yet"}
         }
     }
 
     fn handle_server_conn(&mut self, user_jid: Jid, client_token: &str, server_token: &str, secret: Option<&str>) -> Result<(PersistentSession, Jid)> {
         let (new_session_state, persistent_session, user_jid) = match self.session_state {
             SessionState::PendingNew { ref mut private_key, ref client_id, .. } => {
-                let secret = base64::decode(secret.ok_or(ErrorKind::JsonFieldMissing("secret"))?)?;
+                let secret = base64::decode(secret.ok_or(WaError::JsonFieldMissing("secret"))?)?;
                 let (enc, mac) = crypto::calculate_secret_keys(&secret, private_key.take().unwrap())?;
 
                 self.user_jid = Some(user_jid);
@@ -222,7 +222,7 @@ impl<H: WhatsappWebHandler<H> + Send + Sync + 'static> WhatsappWebConnectionInne
 
                 (SessionState::Established { persistent_session: new_persistent_session.clone() }, new_persistent_session, self.user_jid.clone())
             }
-            _ => { bail!{"Session already established but received conn packet"} }
+            _ => { bail_untyped!{"Session already established but received conn packet"} }
         };
         self.session_state = new_session_state;
         Ok((persistent_session, user_jid.unwrap()))

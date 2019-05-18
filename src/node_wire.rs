@@ -91,7 +91,7 @@ impl NodeContent {
     pub fn into_jid(self) -> Result<Jid> {
         match self {
             NodeContent::Jid(jid) => Ok(jid),
-            _ => bail! {"not a jid"}
+            _ => bail_untyped! {"not a jid"}
         }
     }
 
@@ -120,7 +120,7 @@ fn read_list_size(tag: u8, stream: &mut Read) -> Result<u16> {
         LIST_EMPTY => 0,
         LIST_8 => u16::from(stream.read_u8()?),
         LIST_16 => stream.read_u16::<BigEndian>()?,
-        _ => bail! {"Invalid listsize tag: {}", tag}
+        _ => bail_untyped! {"Invalid listsize tag: {}", tag}
     })
 }
 
@@ -140,11 +140,11 @@ fn write_list_size(size: u16, stream: &mut Write) -> Result<()> {
 }
 
 fn read_list(tag: u8, stream: &mut Read) -> Result<Vec<Node>> {
-    let size = read_list_size(tag, stream).chain_err(|| "Couldn't read list size")?;
+    let size = read_list_size(tag, stream).map_err(|_| "Couldn't read list size")?;
     let mut list = Vec::<Node>::with_capacity(size as usize);
 
     for i in 0..size {
-        list.push(Node::deserialize_stream(stream).chain_err(|| format!("Couldn't read list item: {}, size: {}", i, size))?);
+        list.push(Node::deserialize_stream(stream).map_err(|_| format!("Couldn't read list item: {}, size: {}", i, size))?);
     }
 
     Ok(list)
@@ -176,7 +176,7 @@ fn nibble_to_char(nibble: u8) -> Result<char> {
         11 => '.',
         15 => '\0',
         _ => {
-            bail! {"invalid nibble: {}", nibble}
+            bail_untyped! {"invalid nibble: {}", nibble}
         }
     })
 }
@@ -261,7 +261,7 @@ fn read_node_content(tag: u8, stream: &mut Read) -> Result<NodeContent> {
             NodeContent::String(string.cow())
         }
         _ => {
-            bail! {"Invalid Tag {}", tag}
+            bail_untyped! {"Invalid Tag {}", tag}
         }
     })
 }
@@ -360,11 +360,11 @@ impl Node {
     }
 
     pub fn take_attribute(&mut self, key: &'static str) -> Result<NodeContent> {
-        self.attributes.remove(&key.cow()).ok_or_else(|| ErrorKind::NodeAttributeMissing(key).into())
+        self.attributes.remove(&key.cow()).ok_or_else(|| WaError::NodeAttributeMissing(key).into())
     }
 
     pub fn get_attribute<'a>(&'a self, key: &'static str) -> Result<&'a NodeContent> {
-        self.attributes.get(&key.cow()).ok_or_else(|| ErrorKind::NodeAttributeMissing(key).into())
+        self.attributes.get(&key.cow()).ok_or_else(|| WaError::NodeAttributeMissing(key).into())
     }
 
     pub fn set_attribute<K: IntoCow>(&mut self, key: K, value: NodeContent) {
@@ -373,18 +373,18 @@ impl Node {
 
 
     pub fn deserialize(data: &[u8]) -> Result<Node> {
-        Node::deserialize_stream(&mut Cursor::new(data)).chain_err(|| "Node has invalid binary format")
+        Node::deserialize_stream(&mut Cursor::new(data)).map_err(|_| "Node has invalid binary format".into())
     }
 
     fn deserialize_stream(stream: &mut Read) -> Result<Node> {
-        let list_size = read_list_size(stream.read_u8()?, stream).chain_err(|| "Couldn't read attribute count")?;
-        let desc = read_node_content(stream.read_u8()?, stream).chain_err(|| "Couldn't read description")?.into_cow();
+        let list_size = read_list_size(stream.read_u8()?, stream).map_err(|_| "Couldn't read attribute count")?;
+        let desc = read_node_content(stream.read_u8()?, stream).map_err(|_| "Couldn't read description")?.into_cow();
 
         let mut attributes = HashMap::new();
 
         for _ in 0..((list_size - 1) >> 1) {
-            let attribute_name = read_node_content(stream.read_u8()?, stream).chain_err(|| format!("Couldn't read attribute name, node decription: {}", desc))?.into_cow();
-            let attribute_content = read_node_content(stream.read_u8()?, stream).chain_err(|| format!("Couldn't read attribute :{}, node decription: {}", attribute_name, desc))?;
+            let attribute_name = read_node_content(stream.read_u8()?, stream).map_err(|_| format!("Couldn't read attribute name, node decription: {}", desc))?.into_cow();
+            let attribute_content = read_node_content(stream.read_u8()?, stream).map_err(|_| format!("Couldn't read attribute :{}, node decription: {}", attribute_name, desc))?;
 
             attributes.insert(attribute_name, attribute_content);
         }
@@ -411,7 +411,7 @@ impl Node {
                     stream.read_exact(&mut buffer)?;
                     NodeContent::Binary(buffer)
                 }
-                _ => read_node_content(tag, stream).chain_err(|| format!("Couldn't read node content (list), node decription: {}", desc))?
+                _ => read_node_content(tag, stream).map_err(|_| format!("Couldn't read node content (list), node decription: {}", desc))?
             }
         };
 

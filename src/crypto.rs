@@ -38,7 +38,7 @@ pub(crate) fn calculate_secret_keys(secret: &[u8], private_key: agreement::Ephem
 
     let signature = [&secret[..32], &secret[64..]].concat();
 
-    hmac::verify(&hmac::VerificationKey::new(&digest::SHA256, &secret_key_expanded[32..64]), &signature, &secret[32..64]).chain_err(|| "Invalid mac")?;
+    hmac::verify(&hmac::VerificationKey::new(&digest::SHA256, &secret_key_expanded[32..64]), &signature, &secret[32..64]).map_err(|_| "Invalid mac")?;
 
     let mut buffer = [0u8; 64];
 
@@ -56,7 +56,7 @@ pub(crate) fn calculate_secret_keys(secret: &[u8], private_key: agreement::Ephem
 
 pub fn verify_and_decrypt_message(enc: &[u8], mac: &[u8], message_encrypted: &[u8]) -> Result<Vec<u8>> {
     hmac::verify(&hmac::VerificationKey::new(&digest::SHA256, &mac),
-                 &message_encrypted[32..], &message_encrypted[..32]).chain_err(|| "Invalid mac")?;
+                 &message_encrypted[32..], &message_encrypted[..32]).map_err(|_| "Invalid mac")?;
 
     let mut message = vec![0u8; message_encrypted.len() - 48];
 
@@ -146,7 +146,7 @@ pub fn decrypt_media_message(key: &[u8], media_type: MediaType, file_encrypted: 
                                &hmac_data);
 
     if file_encrypted[(size - 10)..] != signature.as_ref()[..10] {
-        bail! {"Invalid mac"}
+        bail_untyped! {"Invalid mac"}
     }
 
 

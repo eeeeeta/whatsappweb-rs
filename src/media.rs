@@ -44,7 +44,7 @@ pub fn download_file(file_info: FileInfo, media_type: MediaType, callback: Box<F
                     response.copy_to(&mut file_enc)
                         .map_err(|e| Error::with_chain(e, "could not load file"))
                 } else {
-                    bail!{"received http status code {}", status.as_u16()}
+                    bail_untyped!{"received http status code {}", status.as_u16()}
                 }
             })
             .and_then(|_| crypto::decrypt_media_message(&file_info.key, media_type, &file_enc.into_inner())));
@@ -103,7 +103,7 @@ pub fn upload_file<H>(file: &[u8], media_type: MediaType, connection: &WhatsappW
                     callback(file_info);
                 });
             }
-            Err(err) => callback(Err(err).chain_err(|| "could not request file upload"))
+            Err(err) => callback(Err(err).map_err(|_| "could not request file upload"))
         }
     }))
 }
