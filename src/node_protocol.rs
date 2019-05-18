@@ -150,15 +150,19 @@ impl AppMessage {
                         }
                     }
                     "chat" => {
-                        if let NodeContent::List(mut list) = root_node.content {
-                            let mut chats = Vec::with_capacity(list.len());
-                            for mut node in list {
-                                chats.push(Chat::parse_node(&mut node)?);
-                            }
+                        match root_node.content {
+                            NodeContent::List(mut list) => {
+                                let mut chats = Vec::with_capacity(list.len());
+                                for mut node in list {
+                                    chats.push(Chat::parse_node(&mut node)?);
+                                }
 
-                            Ok(AppMessage::Chats(chats))
-                        } else {
-                            bail_untyped!{ "Invalid nodetype for chats"}
+                                Ok(AppMessage::Chats(chats))
+                            },
+                            NodeContent::None => {
+                                Ok(AppMessage::Chats(vec![]))
+                            },
+                            _ => bail_untyped!{ "Invalid nodetype for chats" }
                         }
                     }
                     _ =>  bail_untyped!{ "invalid or unsupported 'response' type"}
