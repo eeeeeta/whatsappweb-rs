@@ -132,7 +132,7 @@ impl AppMessage {
 
                     Ok(AppMessage::MessagesEvents(event_type, app_events))
                 } else {
-                    bail_untyped!{ "invalid or unsupported action type"}
+                    bail_untyped!{ "invalid or unsupported action type: {:?}", root_node.content }
                 }
             }
             "response" => {
