@@ -11,7 +11,7 @@ under the aegis of the [whatsapp-web-reveng](https://github.com/sigalor/whatsapp
 
 ## What have you changed?
 
-- Various stability fixes (doesn't error out as easily when WhatAPp send us weird stuff)
+- Various stability fixes (doesn't error out as easily when WhatsApp sends us weird stuff)
 - Dependency updates (to work with modern Rust crates)
 - New error handling (using `failure` instead of `error-chain`)
 - Small bug fixes here and there
