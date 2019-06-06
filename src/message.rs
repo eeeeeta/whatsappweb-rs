@@ -263,6 +263,38 @@ pub enum ChatMessageContent {
 }
 
 impl ChatMessageContent {
+    pub fn quoted_description(&self) -> String {
+        use self::ChatMessageContent::*;
+
+        match *self {
+            Text(ref st) => {
+                st.to_owned()
+            },
+            Image { ref caption, .. } => {
+                if let Some(c) = caption {
+                    format!("Image: {}", c)
+                }
+                else {
+                    "Image".into()
+                }
+            },
+            Video { ref caption, .. } => {
+                if let Some(c) = caption {
+                    format!("Video: {}", c)
+                }
+                else {
+                    "Video".into()
+                }
+            },
+            Audio { .. } => "Audio".into(),
+            Document { ref filename, .. } => format!("Document: {}", filename),
+            Contact { ref display_name, .. } => format!("Contact: {}", display_name),
+            Location { lat, long, .. } => format!("Location: ({}, {})", lat, long),
+            LiveLocation { lat, long, .. } => format!("Live location: ({}, {})", lat, long),
+            Redaction { ref mid } => format!("Redaction of {}", mid.0),
+            Unimplemented(_) => format!("[unimplemented]"),
+        }
+    }
     pub fn take_caption(&mut self) -> Option<String> {
         use self::ChatMessageContent::*;
 
