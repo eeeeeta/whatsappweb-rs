@@ -586,7 +586,8 @@ impl<H: WhatsappWebHandler<H> + Send + Sync> WhatsappWebConnection<H> {
             content: message_content,
             time: Utc::now().naive_utc(),
             direction: Direction::Sending(jid),
-            id: message_id.clone()
+            id: message_id.clone(),
+            quoted: None
         }))]);
         self.send_app_message(Some(message_id.0), WebsocketMessageMetric::Message, msg, Box::new(|_, _| {}));
     }

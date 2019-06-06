@@ -10,6 +10,38 @@ use super::message_wire;
 use super::Jid;
 use errors::*;
 
+macro_rules! get_fileinfo {
+    ($msg:ident) => {
+        FileInfo {
+            url: $msg.take_url(),
+            mime: $msg.take_mimetype(),
+            sha256: $msg.take_fileSha256(),
+            enc_sha256: $msg.take_fileEncSha256(),
+            size: $msg.get_fileLength() as usize,
+            key: $msg.take_mediaKey(),
+        }
+    }
+}
+macro_rules! get_caption {
+    ($msg:ident) => {
+        if $msg.has_caption() {
+            Some($msg.take_caption())
+        }
+        else {
+            None
+        }
+    }
+}
+macro_rules! get_context_info {
+    ($msg:expr) => {
+        if $msg.has_contextInfo() {
+            QuotedChatMessage::from_context_info($msg.take_contextInfo())?
+        }
+        else {
+            None
+        }
+    }
+}
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct MessageId(pub String);
 
@@ -126,102 +158,220 @@ impl MessageAck {
     }
 }
 
+/// Information about a file.
 #[derive(Debug)]
 pub struct FileInfo {
+    /// The URL where this file is hosted.
     pub url: String,
+    /// The file's MIME type.
     pub mime: String,
+    /// The SHA256 of this file when encrypted (as you'll download it).
     pub sha256: Vec<u8>,
+    /// The SHA256 of this file when decrypted.
+    ///
+    /// **Note:** This seems to be wrong for some unknown reason.
     pub enc_sha256: Vec<u8>,
+    /// The file size, in bytes.
     pub size: usize,
+    /// The key used to decrypt the message.
     pub key: Vec<u8>,
 }
 
+/// The content of a WhatsApp message.
 #[derive(Debug)]
 pub enum ChatMessageContent {
+    /// A simple, plain text message.
     Text(String),
-    Image(FileInfo, (u32, u32), Vec<u8>, Option<String>),
-    Audio(FileInfo, Duration),
-    Video(FileInfo, Duration, Option<String>),
-    Document(FileInfo, String),
+    /// An image.
+    Image {
+        /// Information about the image file itself.
+        info: FileInfo,
+        /// Height (presumably in pixels?)
+        height: u32,
+        /// Width (presumably in pixels?)
+        width: u32,
+        /// JPEG thumbnail of the image.
+        thumbnail: Vec<u8>,
+        /// Image caption, if there is one.
+        caption: Option<String>
+    },
+    /// Some recorded audio.
+    Audio {
+        /// Information about the audio file itself.
+        info: FileInfo,
+        /// How long the file lasts.
+        dur: Duration
+    },
+    /// Some recorded video.
+    Video {
+        /// Information about the video file itself.
+        info: FileInfo,
+        /// How long the file lasts.
+        dur: Duration,
+        /// Video caption, if there is one.
+        caption: Option<String>
+    },
+    /// A generic uploaded file.
+    Document {
+        /// Information about the file itself.
+        info: FileInfo,
+        /// The supplied filename.
+        filename: String
+    },
+    /// An uploaded contact card (i.e. vCard).
+    Contact {
+        /// The name of the contact.
+        display_name: String,
+        /// The contact card, in vCard format.
+        vcard: String
+    },
+    /// A location somewhere on earth.
+    Location {
+        /// Degrees latitude.
+        lat: f64,
+        /// Degrees longitude.
+        long: f64,
+        /// A friendly name for the location, if provided.
+        name: Option<String>,
+        /// An address, if provided.
+        address: Option<String>
+    },
+    /// A live broadcast of someone's location.
+    LiveLocation {
+        /// Degrees latitude.
+        lat: f64,
+        /// Degrees longitude.
+        long: f64,
+        /// Accuracy in metres.
+        accuracy: Option<u32>,
+        /// Speed, in m/s.
+        speed: Option<f32>,
+        /// Heading (in degrees from north).
+        heading: Option<u32>,
+        /// Sequence number of this broadcast.
+        seq: Option<i64>
+    },
+    /// A redaction (i.e. someone 'deleting' a message they've sent).
+    Redaction {
+        /// The message ID being deleted.
+        mid: MessageId
+    },
+    /// An unimplemented message type.
+    /// 
+    /// The text contains a debug version of the raw protobuf message.
     Unimplemented(String)
 }
 
 impl ChatMessageContent {
     pub fn take_caption(&mut self) -> Option<String> {
+        use self::ChatMessageContent::*;
+
         match *self {
-            ChatMessageContent::Image(_, _, _, ref mut c) => c.take(),
-            ChatMessageContent::Video(_, _, ref mut c) => c.take(),
+            Image { ref mut caption, .. } => caption.take(),
+            Video { ref mut caption, .. } => caption.take(),
             _ => None
         }
     }
     fn from_proto(mut message: message_wire::Message) -> Result<ChatMessageContent> {
-        Ok(if message.has_conversation() {
-            ChatMessageContent::Text(message.take_conversation())
-        } else if message.has_imageMessage() {
-            let mut image_message = message.take_imageMessage();
-            let caption = if image_message.has_caption() {
-                Some(image_message.take_caption())
-            }
-            else {
-                None
-            };
-            ChatMessageContent::Image(FileInfo {
-                url: image_message.take_url(),
-                mime: image_message.take_mimetype(),
-                sha256: image_message.take_fileSha256(),
-                enc_sha256: image_message.take_fileEncSha256(),
-                size: image_message.get_fileLength() as usize,
-                key: image_message.take_mediaKey(),
-            }, (image_message.get_height(), image_message.get_width()), image_message.take_jpegThumbnail(), caption)
-        } else if message.has_audioMessage() {
-            let mut audio_message = message.take_audioMessage();
-            ChatMessageContent::Audio(FileInfo {
-                url: audio_message.take_url(),
-                mime: audio_message.take_mimetype(),
-                sha256: audio_message.take_fileSha256(),
-                enc_sha256: audio_message.take_fileEncSha256(),
-                size: audio_message.get_fileLength() as usize,
-                key: audio_message.take_mediaKey(),
-            }, Duration::new(u64::from(audio_message.get_seconds()), 0))
-        } else if message.has_videoMessage() {
-            let mut video_message = message.take_videoMessage();
-            let caption = if video_message.has_caption() {
-                Some(video_message.take_caption())
-            }
-            else {
-                None
-            };
-            ChatMessageContent::Video(FileInfo {
-                url: video_message.take_url(),
-                mime: video_message.take_mimetype(),
-                sha256: video_message.take_fileSha256(),
-                enc_sha256: video_message.take_fileEncSha256(),
-                size: video_message.get_fileLength() as usize,
-                key: video_message.take_mediaKey(),
-            }, Duration::new(u64::from(video_message.get_seconds()), 0), caption)
-        } else if message.has_documentMessage() {
-            let mut document_message = message.take_documentMessage();
-            ChatMessageContent::Document(FileInfo {
-                url: document_message.take_url(),
-                mime: document_message.take_mimetype(),
-                sha256: document_message.take_fileSha256(),
-                enc_sha256: document_message.take_fileEncSha256(),
-                size: document_message.get_fileLength() as usize,
-                key: document_message.take_mediaKey(),
-            }, document_message.take_fileName())
-        } else if message.has_extendedTextMessage() {
-            let mut etm = message.take_extendedTextMessage();
-            ChatMessageContent::Text(etm.take_text())
-        } else {
-            ChatMessageContent::Unimplemented(format!("{:?}", message))
-        })
-    }
+        use self::ChatMessageContent::*;
 
+        if message.has_conversation() {
+            return Ok(Text(message.take_conversation()));
+        }
+        if message.has_extendedTextMessage() {
+            let mut etm = message.take_extendedTextMessage();
+            return Ok(Text(etm.take_text()));
+        }
+        if message.has_imageMessage() {
+            let mut imsg = message.take_imageMessage();
+            let caption = if imsg.has_caption() {
+                Some(imsg.take_caption())
+            }
+            else {
+                None
+            };
+            return Ok(Image {
+                info: get_fileinfo!(imsg),
+                height: imsg.get_height(),
+                width: imsg.get_width(),
+                thumbnail: imsg.take_jpegThumbnail(),
+                caption
+            });
+        }
+        if message.has_audioMessage() {
+            let mut amsg = message.take_audioMessage();
+            return Ok(Audio {
+                info: get_fileinfo!(amsg),
+                dur: Duration::new(u64::from(amsg.get_seconds()), 0)
+            });
+        }
+        if message.has_videoMessage() {
+            let mut vmsg = message.take_videoMessage();
+            return Ok(Video {
+                info: get_fileinfo!(vmsg),
+                dur: Duration::new(u64::from(vmsg.get_seconds()), 0),
+                caption: get_caption!(vmsg)
+            });
+        }
+        if message.has_audioMessage() {
+            let mut amsg = message.take_audioMessage();
+            return Ok(Audio {
+                info: get_fileinfo!(amsg),
+                dur: Duration::new(u64::from(amsg.get_seconds()), 0)
+            });
+        }
+        if message.has_documentMessage() {
+            let mut dmsg = message.take_documentMessage();
+            return Ok(Document {
+                info: get_fileinfo!(dmsg),
+                filename: dmsg.take_fileName()
+            });
+        }
+        if message.has_contactMessage() {
+            let mut cmsg = message.take_contactMessage();
+            return Ok(Contact {
+                display_name: cmsg.take_displayName(),
+                vcard: cmsg.take_vcard(),
+            });
+        }
+        if message.has_protocolMessage() {
+            let mut pmsg = message.take_protocolMessage();
+            if pmsg.has_key() && pmsg.has_field_type() {
+                return Ok(Redaction {
+                    mid: MessageId(pmsg.take_key().take_id())
+                });
+            }
+        }
+        if message.has_locationMessage() {
+            let mut lmsg = message.take_locationMessage();
+            let name = if lmsg.has_name() { Some(lmsg.take_name()) } else { None };
+            let address = if lmsg.has_address() { Some(lmsg.take_address()) } else { None };
+            return Ok(Location {
+                lat: lmsg.get_degreesLatitude(),
+                long: lmsg.get_degreesLongitude(),
+                name,
+                address
+            });
+        }
+        if message.has_liveLocationMessage() {
+            let lmsg = message.take_liveLocationMessage();
+            let accuracy = if lmsg.has_accuracyInMeters() { Some(lmsg.get_accuracyInMeters()) } else { None };
+            let speed = if lmsg.has_speedInMps() { Some(lmsg.get_speedInMps()) } else { None };
+            let heading = if lmsg.has_degreesClockwiseFromMagneticNorth() { Some(lmsg.get_degreesClockwiseFromMagneticNorth()) } else { None };
+            let seq = if lmsg.has_sequenceNumber() { Some(lmsg.get_sequenceNumber()) } else { None };
+            return Ok(LiveLocation {
+                lat: lmsg.get_degreesLatitude(),
+                long: lmsg.get_degreesLongitude(),
+                accuracy, speed, heading, seq
+            });
+        }
+        Ok(ChatMessageContent::Unimplemented(format!("{:?}", message)))
+    }
     pub fn into_proto(self) -> message_wire::Message {
         let mut message = message_wire::Message::new();
         match self {
             ChatMessageContent::Text(text) => message.set_conversation(text),
-            ChatMessageContent::Image(info, size, thumbnail, caption) => {
+            ChatMessageContent::Image { info, height, width, thumbnail, caption } => {
                 let mut image_message = message_wire::ImageMessage::new();
                 image_message.set_url(info.url);
                 image_message.set_mimetype(info.mime);
@@ -229,15 +379,15 @@ impl ChatMessageContent {
                 image_message.set_fileSha256(info.sha256);
                 image_message.set_fileLength(info.size as u64);
                 image_message.set_mediaKey(info.key);
-                image_message.set_height(size.0);
-                image_message.set_width(size.1);
+                image_message.set_height(height);
+                image_message.set_width(width);
                 image_message.set_jpegThumbnail(thumbnail);
                 if let Some(caption) = caption {
                     image_message.set_caption(caption);
                 }
                 message.set_imageMessage(image_message);
             }
-            ChatMessageContent::Document(info, filename) => {
+            ChatMessageContent::Document{ info, filename } => {
                 let mut document_message = message_wire::DocumentMessage::new();
                 document_message.set_url(info.url);
                 document_message.set_mimetype(info.mime);
@@ -254,13 +404,61 @@ impl ChatMessageContent {
         message
     }
 }
-
+/// A message embedded in another.
+#[derive(Debug)]
+pub struct QuotedChatMessage {
+    /// The person who originally sent the quoted message.
+    pub participant: Jid,
+    /// The message contents.
+    pub content: ChatMessageContent
+}
+impl QuotedChatMessage {
+    pub fn from_message(m: &mut message_wire::Message) -> Result<Option<Self>> {
+        if m.has_extendedTextMessage() {
+            return Ok(get_context_info!(m.take_extendedTextMessage()));
+        }
+        if m.has_imageMessage() {
+            return Ok(get_context_info!(m.take_imageMessage()));
+        }
+        if m.has_audioMessage() {
+            return Ok(get_context_info!(m.take_audioMessage()));
+        }
+        if m.has_videoMessage() {
+            return Ok(get_context_info!(m.take_videoMessage()));
+        }
+        if m.has_documentMessage() {
+            return Ok(get_context_info!(m.take_documentMessage()));
+        }
+        if m.has_contactMessage() {
+            return Ok(get_context_info!(m.take_contactMessage()));
+        }
+        if m.has_locationMessage() {
+            return Ok(get_context_info!(m.take_locationMessage()));
+        }
+        Ok(None)
+    }
+    pub fn from_context_info(mut ctx: message_wire::ContextInfo) -> Result<Option<Self>> {
+        if !ctx.has_participant() || !ctx.has_quotedMessage() {
+            return Ok(None);
+        }
+        let participant: Jid = ctx.take_participant().parse()?;
+        let content = ChatMessageContent::from_proto(ctx.take_quotedMessage())?;
+        Ok(Some(Self { participant, content }))
+    }
+}
+/// A WhatsApp message.
 #[derive(Debug)]
 pub struct ChatMessage {
+    /// The direction of this message - i.e. who we're sending it to, or receiving it from.
     pub direction: Direction,
+    /// Timestamp.
     pub time: NaiveDateTime,
+    /// Message ID - probably unique.
     pub id: MessageId,
+    /// The message contents.
     pub content: ChatMessageContent,
+    /// The message this message is in reply to (or quoting), if any.
+    pub quoted: Option<QuotedChatMessage>
 }
 
 impl ChatMessage {
@@ -272,11 +470,14 @@ impl ChatMessage {
 
     pub fn from_proto(mut webmessage: message_wire::WebMessageInfo) -> Result<ChatMessage> {
         debug!("Processing WebMessageInfo: {:?}", &webmessage);
+        let mut msg = webmessage.take_message();
+        let quoted = QuotedChatMessage::from_message(&mut msg)?;
         Ok(ChatMessage {
             id: MessageId(webmessage.mut_key().take_id()),
             direction: Direction::parse(&mut webmessage)?,
             time: NaiveDateTime::from_timestamp(webmessage.get_messageTimestamp() as i64, 0),
-            content: ChatMessageContent::from_proto(webmessage.take_message())?,
+            content: ChatMessageContent::from_proto(msg)?,
+            quoted
         })
     }
 
