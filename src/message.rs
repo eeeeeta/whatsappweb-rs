@@ -303,7 +303,7 @@ impl ChatMessage {
 
         webmessage.set_message(self.content.into_proto());
 
-        webmessage.set_status(message_wire::WebMessageInfo_STATUS::PENDING);
+        webmessage.set_status(message_wire::WebMessageInfo_WEB_MESSAGE_INFO_STATUS::PENDING);
         debug!("Building WebMessageInfo: {:?}", &webmessage);
 
         webmessage
