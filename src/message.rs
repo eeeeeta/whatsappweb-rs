@@ -447,25 +447,25 @@ pub struct QuotedChatMessage {
 impl QuotedChatMessage {
     pub fn from_message(m: &mut message_wire::Message) -> Result<Option<Self>> {
         if m.has_extendedTextMessage() {
-            return Ok(get_context_info!(m.take_extendedTextMessage()));
+            return Ok(get_context_info!(m.mut_extendedTextMessage()));
         }
         if m.has_imageMessage() {
-            return Ok(get_context_info!(m.take_imageMessage()));
+            return Ok(get_context_info!(m.mut_imageMessage()));
         }
         if m.has_audioMessage() {
-            return Ok(get_context_info!(m.take_audioMessage()));
+            return Ok(get_context_info!(m.mut_audioMessage()));
         }
         if m.has_videoMessage() {
-            return Ok(get_context_info!(m.take_videoMessage()));
+            return Ok(get_context_info!(m.mut_videoMessage()));
         }
         if m.has_documentMessage() {
-            return Ok(get_context_info!(m.take_documentMessage()));
+            return Ok(get_context_info!(m.mut_documentMessage()));
         }
         if m.has_contactMessage() {
-            return Ok(get_context_info!(m.take_contactMessage()));
+            return Ok(get_context_info!(m.mut_contactMessage()));
         }
         if m.has_locationMessage() {
-            return Ok(get_context_info!(m.take_locationMessage()));
+            return Ok(get_context_info!(m.mut_locationMessage()));
         }
         Ok(None)
     }
