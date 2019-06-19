@@ -729,7 +729,7 @@ pub struct PersistentSession {
     pub mac: [u8; 32]
 }
 
-const ENDPOINT_URL: &str = "wss://w7.web.whatsapp.com/ws";
+const ENDPOINT_URL: &str = "wss://web.whatsapp.com/ws";
 
 /// Create new connection and session.
 /// Will eventual call ```qr_cb``` with the generated qr-code.
