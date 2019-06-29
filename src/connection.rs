@@ -398,8 +398,14 @@ impl<H: WhatsappWebHandler<H> + Send + Sync> WhatsappWebConnection<H> {
         } else {
             return;
         }
-        let message = WebsocketMessage::deserialize(message).unwrap();
-
+        let message = match WebsocketMessage::deserialize(message) {
+            Ok(m) => m,
+            Err(_) => {
+                error!("Failed to deserialize websocket message!");
+                warn!("Message contents: {:?}", message);
+                return;
+            }
+        };
 
         match message.payload {
             WebsocketMessagePayload::Json(payload) => {
@@ -494,7 +500,22 @@ impl<H: WhatsappWebHandler<H> + Send + Sync> WhatsappWebConnection<H> {
                 }
             }
             WebsocketMessagePayload::BinarySimple(encrypted_payload) => {
-                let payload = Node::deserialize(&inner.decrypt_binary_message(encrypted_payload).unwrap()).unwrap();
+                let decrypted_message = match inner.decrypt_binary_message(encrypted_payload) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        error!("Failed to decrypt binary message payload: {}", e);
+                        warn!("Payload: {:?}", encrypted_payload);
+                        return;
+                    }
+                };
+                let payload = match Node::deserialize(&decrypted_message) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        error!("Failed to deserialize node: {}", e);
+                        warn!("Payload: {:?}", decrypted_message);
+                        return;
+                    },
+                };
                 debug!("received node: {:?}", &payload);
 
                 if let Some(cb) = inner.requests.remove(message.tag.deref()) {
@@ -531,7 +552,7 @@ impl<H: WhatsappWebHandler<H> + Send + Sync> WhatsappWebConnection<H> {
                             }
                         },
                         Err(e) => {
-                            warn!("failed to deserialize appmessage: {}", e);
+                            error!("Failed to deserialize appmessage: {}", e);
                         },
                         _ => {}
                     }

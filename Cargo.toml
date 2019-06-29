@@ -1,6 +1,6 @@
 [package]
 name = "whatsappweb"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Christoph Walcher <christoph-wa@gmx.de>", "eta <hi@theta.eu.org>"]
 build = "build.rs"
 description = "WhatsApp Web (reverse-engineered) API client, eta's fork thereof"
