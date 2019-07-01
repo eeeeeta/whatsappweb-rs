@@ -27,7 +27,7 @@ const NIBBLE_8: u8 = 255;
 #[allow(dead_code)]
 const PACKED_MAX: u8 = 254;
 
-const TOKENS: [&str; 159] = ["200", "400", "404", "500", "501", "502", "action", "add",
+const TOKENS: [&str; 173] = ["200", "400", "404", "500", "501", "502", "action", "add",
     "after", "archive", "author", "available", "battery", "before", "body",
     "broadcast", "chat", "clear", "code", "composing", "contacts", "count",
     "create", "debug", "delete", "demote", "duplicate", "encoding", "error",
@@ -49,7 +49,9 @@ const TOKENS: [&str; 159] = ["200", "400", "404", "500", "501", "502", "action",
     "invite", "gif", "vcard", "frequent", "privacy", "blacklist", "whitelist",
     "verify", "location", "document", "elapsed", "revoke_invite", "expiration",
     "unsubscribe", "disable", "vname", "old_jid", "new_jid", "announcement",
-    "locked", "prop", "label", "color", "call", "offer", "call-id"
+    "locked", "prop", "label", "color", "call", "offer", "call-id",
+    "quick_reply", "sticker", "pay_t", "accept", "reject", "sticker_pack", "invalid",
+    "canceled", "missed", "connected", "result", "audio", "video", "recent"
 ];
 
 #[derive(Debug, PartialEq, Clone)]
@@ -140,11 +142,12 @@ fn write_list_size(size: u16, stream: &mut Write) -> Result<()> {
 }
 
 fn read_list(tag: u8, stream: &mut Read) -> Result<Vec<Node>> {
-    let size = read_list_size(tag, stream).map_err(|_| "Couldn't read list size")?;
+    let size = read_list_size(tag, stream).with_context("reading list size")?;
     let mut list = Vec::<Node>::with_capacity(size as usize);
 
     for i in 0..size {
-        list.push(Node::deserialize_stream(stream).map_err(|_| format!("Couldn't read list item: {}, size: {}", i, size))?);
+        list.push(Node::deserialize_stream(stream)
+                  .with_owned_context(format!("reading list item {} of {}", i, size))?);
     }
 
     Ok(list)
@@ -204,7 +207,7 @@ fn char_to_nibble(nibble: char) -> u8 {
 
 fn read_node_content(tag: u8, stream: &mut Read) -> Result<NodeContent> {
     Ok(match tag {
-        3...161 => NodeContent::Token(TOKENS[(tag - 3) as usize]),
+        3...176 => NodeContent::Token(TOKENS[(tag - 3) as usize]),
         DICTIONARY_0 | DICTIONARY_1 | DICTIONARY_2 | DICTIONARY_3 => {
             stream.read_u8()?;
             NodeContent::List(Vec::new())
@@ -260,8 +263,8 @@ fn read_node_content(tag: u8, stream: &mut Read) -> Result<NodeContent> {
             }*/
             NodeContent::String(string.cow())
         }
-        _ => {
-            bail_untyped! {"Invalid Tag {}", tag}
+        t => {
+            return Err(WaError::InvalidTag(t));
         }
     })
 }
@@ -373,18 +376,18 @@ impl Node {
 
 
     pub fn deserialize(data: &[u8]) -> Result<Node> {
-        Node::deserialize_stream(&mut Cursor::new(data)).map_err(|_| "Node has invalid binary format".into())
+        Node::deserialize_stream(&mut Cursor::new(data))
     }
 
     fn deserialize_stream(stream: &mut Read) -> Result<Node> {
-        let list_size = read_list_size(stream.read_u8()?, stream).map_err(|_| "Couldn't read attribute count")?;
-        let desc = read_node_content(stream.read_u8()?, stream).map_err(|_| "Couldn't read description")?.into_cow();
+        let list_size = read_list_size(stream.read_u8()?, stream).with_context("reading list size")?;
+        let desc = read_node_content(stream.read_u8()?, stream).with_context("reading description")?.into_cow();
 
         let mut attributes = HashMap::new();
 
         for _ in 0..((list_size - 1) >> 1) {
-            let attribute_name = read_node_content(stream.read_u8()?, stream).map_err(|_| format!("Couldn't read attribute name, node decription: {}", desc))?.into_cow();
-            let attribute_content = read_node_content(stream.read_u8()?, stream).map_err(|_| format!("Couldn't read attribute :{}, node decription: {}", attribute_name, desc))?;
+            let attribute_name = read_node_content(stream.read_u8()?, stream).with_owned_context(format!("Couldn't read attribute name, node description: {}", desc))?.into_cow();
+            let attribute_content = read_node_content(stream.read_u8()?, stream).with_owned_context(format!("Couldn't read attribute :{}, node description: {}", attribute_name, desc))?;
 
             attributes.insert(attribute_name, attribute_content);
         }
@@ -411,7 +414,7 @@ impl Node {
                     stream.read_exact(&mut buffer)?;
                     NodeContent::Binary(buffer)
                 }
-                _ => read_node_content(tag, stream).map_err(|_| format!("Couldn't read node content (list), node decription: {}", desc))?
+                _ => read_node_content(tag, stream)?
             }
         };
 
@@ -455,11 +458,11 @@ impl Jid {
                 "c.us" => false,
                 "g.us" => true,
                 "s.whatsapp.net" => false,
-                "broadcast" => false, //Todo
+                "broadcast" => false,
                 _ => {
-                    warn!("Invalid jid surfix {}", surfix);
+                    warn!("invalid jid suffix: {}", surfix);
                     false
-                }, // FIXME
+                }
             },
         })
     }
@@ -507,5 +510,10 @@ mod tests {
         let node_ser_de = Node::deserialize(&node.clone().serialize()).unwrap();
 
         assert_eq!(node_ser_de, node);
+    }
+    #[test]
+    fn test_failure_case_20190701() {
+        let data = [248, 2, 9, 248, 1, 248, 4, 23, 91, 139, 248, 3, 248, 3, 52, 45, 250, 255, 6, 68, 121, 68, 88, 86, 134, 80, 248, 3, 40, 45, 250, 255, 6, 68, 121, 68, 88, 86, 134, 80, 248, 3, 174, 45, 250, 255, 6, 68, 121, 68, 88, 86, 134, 80];
+        Node::deserialize(&data).unwrap();
     }
 }

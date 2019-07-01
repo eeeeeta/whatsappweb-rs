@@ -29,6 +29,22 @@ macro_rules! bail_untyped {
         }
 }
 
+pub trait WaErrorContext {
+        fn with_context(self, ctx: &'static str) -> Self;
+        fn with_owned_context<T: Into<String>>(self, ctx: T) -> Self;
+}
+impl<T> WaErrorContext for Result<T> {
+        fn with_context(self, ctx: &'static str) -> Self {
+                self.map_err(|e| {
+                        WaError::Context(ctx, Box::new(e))
+                })
+        }
+        fn with_owned_context<U: Into<String>>(self, ctx: U) -> Self {
+                self.map_err(|e| {
+                        WaError::OwnedContext(ctx.into(), Box::new(e))
+                })
+        }
+}
 #[derive(Debug, Fail)]
 pub enum WaError {
         #[fail(display = "I/O error: {}", _0)]
@@ -50,6 +66,12 @@ pub enum WaError {
         NodeAttributeMissing(&'static str),
         #[fail(display = "Missing JSON field \"{}\"", _0)]
         JsonFieldMissing(&'static str),
+        #[fail(display = "while {}: {}", _0, _1)]
+        Context(&'static str, Box<WaError>),
+        #[fail(display = "while {}: {}", _0, _1)]
+        OwnedContext(String, Box<WaError>),
+        #[fail(display = "unknown tag {}", _0)]
+        InvalidTag(u8),
         #[fail(display = "{}", _0)]
         UntypedOwned(String),
         #[fail(display = "{}", _0)]
