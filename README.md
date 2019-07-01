@@ -1,6 +1,7 @@
 # whatsappweb-rs (eta's fork)
 
 [![Documentation for this fork](https://img.shields.io/badge/fork%20docs-on%20theta.eu.org-blueviolet.svg)](https://theta.eu.org/stash/ww-rs-docs/whatsappweb/index.html)
+[![Build Status](https://travis-ci.org/eeeeeta/whatsappweb-rs.svg?branch=master)](https://travis-ci.org/eeeeeta/whatsappweb-rs)
 
 ## What is this?
 
