@@ -67,7 +67,6 @@ pub enum WebsocketMessagePayload<'a> {
 
 
 impl<'a> WebsocketMessage<'a> {
-    #[inline]
     pub fn serialize(&self) -> Message {
         match self.payload {
             WebsocketMessagePayload::Json(ref json) => {
@@ -90,7 +89,6 @@ impl<'a> WebsocketMessage<'a> {
         }
     }
 
-    #[inline]
     pub fn deserialize(message: &'a Message) -> Result<WebsocketMessage<'a>, ()> {
         match *message {
             Message::Text(ref message) => {

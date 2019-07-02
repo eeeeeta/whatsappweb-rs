@@ -25,7 +25,6 @@ pub enum ServerMessage<'a> {
 
 
 impl<'a> ServerMessage<'a> {
-    #[inline]
     pub fn deserialize(json: &'a JsonValue) -> Result<ServerMessage<'a>> {
         let opcode = json[0].as_str().ok_or("server message without opcode")?;
         let payload = &json[1];

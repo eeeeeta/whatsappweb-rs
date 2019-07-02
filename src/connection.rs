@@ -149,7 +149,6 @@ impl<H: WhatsappWebHandler<H> + Send + Sync + 'static> WhatsappWebConnectionInne
         self.send_node_message(tag, metric, app_message.serialize(epoch), cb);
     }
 
-    #[inline]
     fn send_node_message(&mut self, tag: Option<String>, metric: WebsocketMessageMetric, node: Node, cb: Box<Fn(WebsocketResponse, &WhatsappWebConnection<H>) + Send>) {
         debug!("sending node {:?}", &node);
         self.send_binary_message(tag, metric, &node.serialize(), cb);
@@ -600,8 +599,9 @@ impl<H: WhatsappWebHandler<H> + Send + Sync> WhatsappWebConnection<H> {
         self.send_app_message(None, WebsocketMessageMetric::Chat, msg, Box::new(|_, _| {}));
     }
 
-    pub fn send_message(&self, message_content: ChatMessageContent, jid: Jid) {
+    pub fn send_message(&self, message_content: ChatMessageContent, jid: Jid) -> MessageId {
         let message_id = MessageId::generate();
+        let ret = message_id.clone();
 
         let msg = AppMessage::MessagesEvents(Some(MessageEventType::Relay), vec![AppEvent::Message(Box::new(WhatsappMessage {
             content: message_content,
@@ -611,6 +611,7 @@ impl<H: WhatsappWebHandler<H> + Send + Sync> WhatsappWebConnection<H> {
             quoted: None
         }))]);
         self.send_app_message(Some(message_id.0), WebsocketMessageMetric::Message, msg, Box::new(|_, _| {}));
+        ret
     }
 
     pub fn group_create(&self, subject: String, participants: Vec<Jid>) {

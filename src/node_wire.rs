@@ -340,7 +340,6 @@ fn write_node_content(content: NodeContent, stream: &mut Write) -> Result<()> {
 }
 
 impl Node {
-    #[inline]
     pub fn new<D: IntoCow>(desc: D, attributes: HashMap<Cow<'static, str>, NodeContent>, content: NodeContent) -> Node {
         Node {
             desc: desc.cow(),
@@ -349,7 +348,6 @@ impl Node {
         }
     }
 
-    #[inline]
     pub fn new_empty<D: IntoCow>(desc: D) -> Node {
         Node {
             desc: desc.cow(),
