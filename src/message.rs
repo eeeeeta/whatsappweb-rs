@@ -159,7 +159,7 @@ impl MessageAck {
 }
 
 /// Information about a file.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FileInfo {
     /// The URL where this file is hosted.
     pub url: String,
