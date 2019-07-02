@@ -178,7 +178,7 @@ pub struct FileInfo {
 }
 
 /// The content of a WhatsApp message.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ChatMessageContent {
     /// A simple, plain text message.
     Text(String),
