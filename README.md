@@ -1,6 +1,7 @@
 # whatsappweb-rs (eta's fork)
 
-[![Documentation for this fork](https://img.shields.io/badge/fork%20docs-on%20theta.eu.org-blueviolet.svg)](https://theta.eu.org/stash/ww-rs-docs/whatsappweb/index.html)
+[![Crates.io badge](https://img.shields.io/crates/v/whatsappweb-eta.svg)](https://crates.io/crates/whatsappweb-eta)
+[![Docs](https://docs.rs/whatsappweb-eta/badge.svg)](https://docs.rs/whatsappweb-eta)
 [![Build Status](https://travis-ci.org/eeeeeta/whatsappweb-rs.svg?branch=master)](https://travis-ci.org/eeeeeta/whatsappweb-rs)
 
 ## What is this?
@@ -13,6 +14,7 @@ under the aegis of the [whatsapp-web-reveng](https://github.com/sigalor/whatsapp
 ## What have you changed?
 
 - Various stability fixes (doesn't error out as easily when WhatsApp sends us weird stuff)
+- Made it suitable for publication to crates.io
 - Dependency updates (to work with modern Rust crates)
 - New error handling (using `failure` instead of `error-chain`)
 - Small bug fixes here and there
