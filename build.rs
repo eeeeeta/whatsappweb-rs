@@ -28,7 +28,7 @@ fn main() {
         let br = BufReader::new(generated);
         for line in br.lines() {
             let line = line.unwrap();
-            if line.starts_with("#!") {
+            if line.starts_with("#!") || line.starts_with("//!") {
                 // throw it away
                 continue;
             }
