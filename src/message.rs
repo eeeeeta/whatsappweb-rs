@@ -2,9 +2,9 @@ use std::time::Duration;
 use std::str::FromStr;
 
 use protobuf;
-use chrono::NaiveDateTime;
 use protobuf::Message;
 use ring::rand::{SystemRandom, SecureRandom};
+use chrono::NaiveDateTime;
 
 use super::message_wire;
 use super::Jid;
@@ -94,7 +94,7 @@ impl Direction {
 #[derive(Debug, Copy, Clone)]
 pub enum MessageAckLevel {
     PendingSend = 0,
-    Send = 1,
+    Sent = 1,
     Received = 2,
     Read = 3,
     Played = 4,
@@ -109,7 +109,7 @@ pub enum MessageAckSide {
 #[derive(Debug)]
 pub struct MessageAck {
     pub level: MessageAckLevel,
-    pub time: Option<i64>,
+    pub time: Option<NaiveDateTime>,
     pub id: MessageId,
     pub side: MessageAckSide,
 }
@@ -118,7 +118,7 @@ impl MessageAck {
     pub fn from_server_message(message_id: &str, level: MessageAckLevel, sender: Jid, receiver: Jid, participant: Option<Jid>, time: i64, own_jid: &Jid) -> MessageAck {
         MessageAck {
             level,
-            time: Some(time),
+            time: Some(NaiveDateTime::from_timestamp(time, 0)),
             id: MessageId(message_id.to_string()),
             side: if own_jid == &sender {
                 MessageAckSide::There(if let Some(participant) = participant {

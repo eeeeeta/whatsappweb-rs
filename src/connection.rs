@@ -1,3 +1,10 @@
+// FIXME (generally, for this file): callbacks are bad.
+// - This file overuses callbacks in places where they really could be replaced with something
+//   more elegant. This isn't node.js, for crying out loud!
+// - A lot of the time, we waste an entire allocation and closure construction for an *empty*
+//   callback which doesn't do anything (!)
+// - Also a lot of them should just be FnOnce, instead of Fn, which leads to more cloning.
+
 use std::sync::Mutex;
 use std::collections::HashMap;
 use std::thread;
@@ -408,16 +415,16 @@ impl<H: WhatsappWebHandler<H> + Send + Sync> WhatsappWebConnection<H> {
 
         match message.payload {
             WebsocketMessagePayload::Json(payload) => {
-                debug!("received json: {:?}", &payload);
+                debug!("JSON payload - tag {}, payload {}", message.tag, &payload);
 
                 if let Some(cb) = inner.requests.remove(message.tag.deref()) {
+                    debug!("Payload was in response to a request, firing callback");
                     drop(inner);
                     cb(WebsocketResponse::Json(payload), &self);
                 } else {
                     match ServerMessage::deserialize(&payload) {
                         Ok(ServerMessage::ConnectionAck { user_jid, client_token, server_token, secret }) => {
                             if let Ok((persistent_session, user_jid)) = inner.handle_server_conn(user_jid, client_token, server_token, secret) {
-                                drop(inner);
                                 self.handler.on_state_changed(self, State::Connected);
                                 self.handler.on_persistent_session_data_changed(persistent_session);
                                 self.handler.on_user_data_changed(&self, UserData::UserJid(user_jid));
@@ -428,7 +435,6 @@ impl<H: WhatsappWebHandler<H> + Send + Sync> WhatsappWebConnection<H> {
                         }
                         Ok(ServerMessage::Disconnect(kind)) => {
                             inner.handle_server_disconnect();
-                            drop(inner);
                             self.handler.on_state_changed(self, State::Disconnecting);
                             self.handler.on_disconnect(if kind.is_some() {
                                 DisconnectReason::Replaced
@@ -437,7 +443,6 @@ impl<H: WhatsappWebHandler<H> + Send + Sync> WhatsappWebConnection<H> {
                             });
                         }
                         Ok(ServerMessage::PresenceChange { jid, status, time }) => {
-                            drop(inner);
                             let presence_change = UserData::PresenceChange(
                                 jid,
                                 status,
@@ -474,30 +479,28 @@ impl<H: WhatsappWebHandler<H> + Send + Sync> WhatsappWebConnection<H> {
                             }
                         }
                         Ok(ServerMessage::GroupIntroduce { newly_created, inducer, meta }) => {
-                            drop(inner);
                             self.handler.on_user_data_changed(self, UserData::GroupIntroduce { newly_created, inducer, meta });
                         }
                         Ok(ServerMessage::GroupParticipantsChange { group, change, inducer, participants }) => {
-                            drop(inner);
                             self.handler.on_user_data_changed(self, UserData::GroupParticipantsChange { group, change, inducer, participants });
                         }
                         Ok(ServerMessage::StatusChange(jid, status)) => {
-                            drop(inner);
                             self.handler.on_user_data_changed(self, UserData::StatusChange(jid, status));
                         }
                         Ok(ServerMessage::PictureChange { jid, removed }) => {
-                            drop(inner);
                             self.handler.on_user_data_changed(self, UserData::PictureChange { jid, removed });
                         }
                         Ok(ServerMessage::GroupSubjectChange { group, subject, subject_time, subject_owner }) => {
-                            drop(inner);
                             let subject_time = NaiveDateTime::from_timestamp(subject_time, 0);
                             self.handler.on_user_data_changed(self, UserData::GroupSubjectChange { group, subject, subject_time, subject_owner });
+                        },
+                        Err(e) => {
+                            warn!("Deserialization failed for JSON payload: {}", e);
+                            warn!("Payload was: tag {}, payload {}", message.tag, &payload);
                         }
-                        _ => {}
                     }
                 }
-            }
+            },
             WebsocketMessagePayload::BinarySimple(encrypted_payload) => {
                 let decrypted_message = match inner.decrypt_binary_message(encrypted_payload) {
                     Ok(p) => p,
@@ -518,20 +521,16 @@ impl<H: WhatsappWebHandler<H> + Send + Sync> WhatsappWebConnection<H> {
                 debug!("received node: {:?}", &payload);
 
                 if let Some(cb) = inner.requests.remove(message.tag.deref()) {
-                    drop(inner);
                     cb(WebsocketResponse::Node(payload), &self);
                 } else {
                     match AppMessage::deserialize(payload) {
                         Ok(AppMessage::Contacts(contacts)) => {
-                            drop(inner);
                             self.handler.on_user_data_changed(self, UserData::ContactsInitial(contacts));
                         }
                         Ok(AppMessage::Chats(chats)) => {
-                            drop(inner);
                             self.handler.on_user_data_changed(self, UserData::Chats(chats));
                         }
                         Ok(AppMessage::MessagesEvents(event_type, events)) => {
-                            drop(inner);
                             for event in events {
                                 match event {
                                     AppEvent::Message(message) => self.handler.on_message(self, event_type == Some(MessageEventType::Relay), message),
@@ -550,14 +549,31 @@ impl<H: WhatsappWebHandler<H> + Send + Sync> WhatsappWebConnection<H> {
                                 }
                             }
                         },
+                        Ok(AppMessage::Query(_)) => {}, // should be client only?
                         Err(e) => {
-                            error!("Failed to deserialize appmessage: {}", e);
-                        },
-                        _ => {}
+                            warn!("Failed to deserialize appmessage: {}", e);
+                        }
                     }
                 }
+            },
+            WebsocketMessagePayload::Empty => {
+                use crate::message::{MessageAckLevel, MessageAckSide};
+                trace!("Got empty websocket message payload");
+                if message.tag.len() > 5 {
+                    debug!("Interpreting empty payload as an ack for {}", message.tag);
+                    let mack = MessageAck {
+                        level: MessageAckLevel::PendingSend,
+                        time: None,
+                        id: MessageId(message.tag.to_string()),
+                        side: MessageAckSide::Here(Peer::Individual(inner.user_jid.clone().unwrap()))
+                    };
+                    self.handler.on_user_data_changed(self, UserData::MessageAck(mack));
+                }
+            },
+            WebsocketMessagePayload::Pong => debug!("got a pong"),
+            WebsocketMessagePayload::BinaryEphemeral(_, _) => {
+                // FIXME: I don't know what this is, but why are we ignoring it?
             }
-            _ => {}
         }
     }
 
@@ -610,7 +626,35 @@ impl<H: WhatsappWebHandler<H> + Send + Sync> WhatsappWebConnection<H> {
             id: message_id.clone(),
             quoted: None
         }))]);
-        self.send_app_message(Some(message_id.0), WebsocketMessageMetric::Message, msg, Box::new(|_, _| {}));
+        let mid = message_id.clone();
+        self.send_app_message(Some(message_id.0), WebsocketMessageMetric::Message, msg, Box::new(move |resp, conn| {
+            use crate::message::{MessageAckLevel, MessageAckSide};
+            use crate::json_protocol::LowLevelAck;
+
+            match resp {
+                WebsocketResponse::Json(v) => {
+                    if let Ok(LowLevelAck { status_code, timestamp }) = LowLevelAck::deserialize(&v) {
+                        if status_code != 200 {
+                            warn!("Received message status code {} for ID {}", status_code, mid.0);
+                            return;
+                        }
+                        let mack = MessageAck {
+                            level: MessageAckLevel::Sent,
+                            time: Some(timestamp),
+                            id: mid.clone(),
+                            side: MessageAckSide::Here(Peer::Individual(
+                                    conn.inner.lock().unwrap().user_jid.clone().unwrap()
+                                    ))
+                        };
+                        conn.handler.on_user_data_changed(conn, UserData::MessageAck(mack));
+                    }
+                },
+                WebsocketResponse::Node(oth) => {
+                    warn!("Invalid response to send operation for message ID {}", mid.0);
+                    warn!("Got a node: {:?}", oth);
+                }
+            }
+        }));
         ret
     }
 

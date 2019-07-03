@@ -1,13 +1,26 @@
 use std::str::FromStr;
 
 use json::JsonValue;
+use chrono::NaiveDateTime;
 use base64;
 
 use super::{Jid, PresenceStatus, GroupMetadata, GroupParticipantsChange, MediaType};
 use crate::message::MessageAckLevel;
 use crate::errors::*;
 
-
+#[derive(Debug)]
+pub struct LowLevelAck {
+    pub status_code: u16,
+    pub timestamp: NaiveDateTime
+}
+impl LowLevelAck {
+    pub fn deserialize(json: &JsonValue) -> Result<Self> {
+        let status_code = json["status"].as_u16().ok_or("status field wasn't an integer")?;
+        let ts = json["t"].as_u64().ok_or("timestamp field wasn't a u64")?;
+        let ts = NaiveDateTime::from_timestamp(ts as i64, 0);
+        Ok(Self { status_code, timestamp: ts })
+    }
+}
 #[derive(Debug)]
 pub enum ServerMessage<'a> {
     ConnectionAck { user_jid: Jid, client_token: &'a str, server_token: &'a str, secret: Option<&'a str> },
@@ -20,12 +33,12 @@ pub enum ServerMessage<'a> {
     GroupParticipantsChange { group: Jid, change: GroupParticipantsChange, inducer: Option<Jid>, participants: Vec<Jid> },
     GroupSubjectChange { group: Jid, subject: String, subject_time: i64, subject_owner: Jid },
     PictureChange { jid: Jid, removed: bool },
-    StatusChange(Jid, String)
+    StatusChange(Jid, String),
 }
 
 
 impl<'a> ServerMessage<'a> {
-    pub fn deserialize(json: &'a JsonValue) -> Result<ServerMessage<'a>> {
+    pub fn deserialize(json: &'a JsonValue) -> Result<ServerMessage<'a>> { 
         let opcode = json[0].as_str().ok_or("server message without opcode")?;
         let payload = &json[1];
 
@@ -154,7 +167,7 @@ impl MessageAckLevel {
     fn from_json(value: u8) -> Result<MessageAckLevel> {
         Ok(match value {
             0 => MessageAckLevel::PendingSend,
-            1 => MessageAckLevel::Send,
+            1 => MessageAckLevel::Sent,
             2 => MessageAckLevel::Received,
             3 => MessageAckLevel::Read,
             4 => MessageAckLevel::Played,
