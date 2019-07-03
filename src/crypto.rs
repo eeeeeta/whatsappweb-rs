@@ -7,8 +7,8 @@ use self::crypto::{aes, blockmodes};
 use self::crypto::buffer::{RefWriteBuffer, RefReadBuffer, WriteBuffer};
 use untrusted;
 
-use MediaType;
-use errors::*;
+use crate::MediaType;
+use crate::errors::*;
 
 pub(crate) fn generate_keypair() -> (agreement::EphemeralPrivateKey, Vec<u8>) {
     let rng = rand::SystemRandom::new();
@@ -182,7 +182,7 @@ pub(crate) fn aes_decrypt(key: &[u8], iv: &[u8], input: &[u8], output: &mut [u8]
 mod tests {
     use super::*;
     use base64;
-    use node_wire::Node;
+    use crate::node_wire::Node;
     use std::io::stdin;
 
 

@@ -6,8 +6,8 @@ use std::ops::Deref;
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use Jid;
-use errors::*;
+use crate::Jid;
+use crate::errors::*;
 
 const LIST_EMPTY: u8 = 0;
 #[allow(dead_code)]

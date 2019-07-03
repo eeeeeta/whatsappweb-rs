@@ -38,7 +38,7 @@ mod timeout;
 
 use std::str::FromStr;
 
-use errors::*;
+use crate::errors::*;
 
 
 #[derive(Debug, Clone, PartialOrd, PartialEq, Ord, Eq, Hash)]

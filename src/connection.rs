@@ -19,17 +19,17 @@ use ws::util::{Token, Timeout};
 use std::time::{SystemTime, Duration};
 use chrono::{NaiveDateTime, Utc};
 
-use crypto;
-use message::{ChatMessage as WhatsappMessage, MessageAck, ChatMessageContent, Peer, Direction, MessageId};
-use timeout;
-use json_protocol;
-use json_protocol::ServerMessage;
-use websocket_protocol::{WebsocketMessage, WebsocketMessagePayload, WebsocketMessageMetric};
-use node_protocol;
-use node_protocol::{AppMessage, MessageEventType, AppEvent, Query, GroupCommand};
-use node_wire::Node;
+use crate::crypto;
+use crate::message::{ChatMessage as WhatsappMessage, MessageAck, ChatMessageContent, Peer, Direction, MessageId};
+use crate::timeout;
+use crate::json_protocol;
+use crate::json_protocol::ServerMessage;
+use crate::websocket_protocol::{WebsocketMessage, WebsocketMessagePayload, WebsocketMessageMetric};
+use crate::node_protocol;
+use crate::node_protocol::{AppMessage, MessageEventType, AppEvent, Query, GroupCommand};
+use crate::node_wire::Node;
 use super::{Jid, PresenceStatus, Contact, Chat, GroupMetadata, GroupParticipantsChange, ChatAction, MediaType};
-use errors::*;
+use crate::errors::*;
 
 pub struct WhatsappWebConnection<H: WhatsappWebHandler + Send + Sync + 'static> {
     inner: Arc<Mutex<WhatsappWebConnectionInner<H>>>,

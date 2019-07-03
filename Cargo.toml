@@ -1,13 +1,20 @@
 [package]
 name = "whatsappweb-eta"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Christoph Walcher <christoph-wa@gmx.de>", "eta <hi@theta.eu.org>"]
 build = "build.rs"
 description = "WhatsApp Web (reverse-engineered) API client, eta's fork thereof"
+documentation = "https://docs.rs/whatsappweb-eta/"
+homepage = "https://git.theta.eu.org/whatsappweb-rs.git/about/"
 repository = "https://git.theta.eu.org/whatsappweb-rs.git/"
 readme = "README.md"
-categories = ["api"]
+keywords = ["whatsapp", "whatsappweb"]
+categories = ["api-bindings"]
 license = "MIT"
+
+[badges]
+travis-ci = { repository = "eeeeeta/whatsappweb-rs", branch = "master" }
+maintenance = { status = "actively-developed" }
 
 [dependencies]
 ws = { version = "0.8", features = ["ssl"] }

@@ -4,8 +4,8 @@ use json::JsonValue;
 use base64;
 
 use super::{Jid, PresenceStatus, GroupMetadata, GroupParticipantsChange, MediaType};
-use message::MessageAckLevel;
-use errors::*;
+use crate::message::MessageAckLevel;
+use crate::errors::*;
 
 
 #[derive(Debug)]
