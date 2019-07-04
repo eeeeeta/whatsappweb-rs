@@ -495,8 +495,8 @@ impl<H: WhatsappWebHandler<H> + Send + Sync> WhatsappWebConnection<H> {
                             self.handler.on_user_data_changed(self, UserData::GroupSubjectChange { group, subject, subject_time, subject_owner });
                         },
                         Err(e) => {
-                            warn!("Deserialization failed for JSON payload: {}", e);
-                            warn!("Payload was: tag {}, payload {}", message.tag, &payload);
+                            debug!("Deserialization failed for JSON payload: {}", e);
+                            debug!("Payload was: tag {}, payload {}", message.tag, &payload);
                         }
                     }
                 }
