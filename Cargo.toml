@@ -21,7 +21,7 @@ ws = { version = "0.8", features = ["ssl"] }
 log = "0.4"
 url = "~1.7"
 json = "0.11"
-ring = "0.14"
+ring = "0.15"
 base64 = "0.10"
 qrcode = "0.10"
 image = { version = "0.21", optional = true }
