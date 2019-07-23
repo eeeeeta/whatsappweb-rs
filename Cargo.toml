@@ -45,4 +45,4 @@ default = []
 media = ["reqwest", "image"]
 
 [build-dependencies]
-protobuf-codegen-pure = "~2.7"
+protobuf-codegen-pure = "~2.8"
