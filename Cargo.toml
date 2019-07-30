@@ -17,7 +17,7 @@ travis-ci = { repository = "eeeeeta/whatsappweb-rs", branch = "master" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-ws = { version = "0.8", features = ["ssl"] }
+ws = { version = "0.9", features = ["ssl"] }
 log = "0.4"
 url = "~1.7"
 json = "0.11"
