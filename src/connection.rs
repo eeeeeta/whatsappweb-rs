@@ -277,7 +277,7 @@ impl<H: WhatsappWebHandler<H> + Send + Sync + 'static> WhatsappWebConnectionInne
         };
         let message: (JsonValue, Box<Fn(JsonValue, &WhatsappWebConnection<H>) + Send>) = match self.session_state {
             SessionState::PendingNew { ref client_id, .. } => {
-                let mut init_command = json_protocol::build_init_request(base64::encode(&client_id).as_str());
+                let init_command = json_protocol::build_init_request(base64::encode(&client_id).as_str());
 
                 (init_command, Box::new(move |response, connection| {
                     if let Ok(reference) = json_protocol::parse_init_response(&response) {
@@ -299,7 +299,7 @@ impl<H: WhatsappWebHandler<H> + Send + Sync + 'static> WhatsappWebConnectionInne
                 }))
             }
             SessionState::PendingPersistent { ref persistent_session } => {
-                let mut init_command = json_protocol::build_init_request(base64::encode(&persistent_session.client_id).as_str());
+                let init_command = json_protocol::build_init_request(base64::encode(&persistent_session.client_id).as_str());
 
                 (init_command, Box::new(move |response, connection| {
                     if let Err(err) = json_protocol::parse_response_status(&response) {
@@ -308,7 +308,7 @@ impl<H: WhatsappWebHandler<H> + Send + Sync + 'static> WhatsappWebConnectionInne
                         let mut inner = connection.inner.lock().unwrap();
                         let message: (JsonValue, Box<Fn(JsonValue, &WhatsappWebConnection<H>) + Send>) = match inner.session_state {
                             SessionState::PendingPersistent { ref persistent_session } => {
-                                let mut login_command = json_protocol::build_takeover_request(persistent_session.client_token.as_str(),
+                                let login_command = json_protocol::build_takeover_request(persistent_session.client_token.as_str(),
                                                                                               persistent_session.server_token.as_str(),
                                                                                               &base64::encode(&persistent_session.client_id));
                                 (login_command, Box::new(move |response, connection| {

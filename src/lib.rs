@@ -1,26 +1,7 @@
-extern crate ws;
-#[macro_use]
-extern crate log;
-extern crate url;
-#[macro_use]
-extern crate json;
-extern crate ring;
-extern crate base64;
-extern crate qrcode;
-#[cfg(feature = "media")]
-extern crate image;
-extern crate untrusted;
-#[macro_use]
-extern crate serde_derive;
-extern crate bincode;
-extern crate protobuf;
-extern crate byteorder;
-extern crate chrono;
-#[macro_use]
-extern crate failure;
-extern crate failure_derive;
-#[cfg(feature = "media")]
-extern crate reqwest;
+#[macro_use] extern crate log;
+#[macro_use] extern crate json;
+#[macro_use] extern crate serde_derive;
+#[macro_use] extern crate failure;
 
 #[macro_use]
 pub mod errors;

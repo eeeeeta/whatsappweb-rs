@@ -11,6 +11,7 @@ readme = "README.md"
 keywords = ["whatsapp", "whatsappweb"]
 categories = ["api-bindings"]
 license = "MIT"
+edition = "2018"
 
 [badges]
 travis-ci = { repository = "eeeeeta/whatsappweb-rs", branch = "master" }

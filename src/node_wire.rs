@@ -319,7 +319,7 @@ fn write_node_content(content: NodeContent, stream: &mut Write) -> Result<()> {
             stream.write_u8((TOKENS.iter().position(|r| r == token).unwrap() + 3) as u8)?
         }
         NodeContent::Nibble(string) => {
-            let mut len = (string.len() as u8 + 1) / 2;
+            let len = (string.len() as u8 + 1) / 2;
             stream.write_u8(NIBBLE_8)?;
             stream.write_u8((string.len() as u8 % 2) << 7 | len)?;
             let mut last_nibble = None;
