@@ -1,10 +1,7 @@
-extern crate crypto;
-
-use ring;
-use ring::{agreement, rand, hkdf, hmac, digest};
+use ring::{agreement, rand, hkdf, hmac, digest, self};
 use ring::rand::{SystemRandom, SecureRandom};
-use self::crypto::{aes, blockmodes};
-use self::crypto::buffer::{RefWriteBuffer, RefReadBuffer, WriteBuffer};
+use crypto::{aes, blockmodes};
+use crypto::buffer::{RefWriteBuffer, RefReadBuffer, WriteBuffer};
 use untrusted;
 
 use crate::MediaType;

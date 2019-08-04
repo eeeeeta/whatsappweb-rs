@@ -3,32 +3,45 @@
 #[macro_use] extern crate serde_derive;
 #[macro_use] extern crate failure;
 
-#[macro_use]
-pub mod errors;
-pub mod connection;
+#[macro_use] pub mod errors;
+pub mod event;
+pub mod conn;
+pub mod req;
 pub mod message;
 #[cfg(feature = "media")]
 pub mod media;
+pub mod session;
 mod message_wire;
 mod node_protocol;
 mod node_wire;
 mod json_protocol;
 mod websocket_protocol;
 pub mod crypto;
-mod timeout;
 
 use std::str::FromStr;
-
+use std::fmt;
 use crate::errors::*;
 
+pub use conn::WebConnection;
 
+/// Jid used to identify either a group or an individual
 #[derive(Debug, Clone, PartialOrd, PartialEq, Ord, Eq, Hash)]
 pub struct Jid {
     pub id: String,
     pub is_group: bool,
 }
+impl fmt::Display for Jid {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let suffix = if self.is_group {
+            "@g.us"
+        }
+        else {
+            "@c.us"
+        };
+        write!(f, "{}{}", self.id, suffix)
+    }
+}
 
-/// Jid used to identify either a group or an individual
 impl Jid {
     pub fn to_string(&self) -> String {
         self.id.to_string() + if self.is_group { "@g.us" } else { "@c.us" }

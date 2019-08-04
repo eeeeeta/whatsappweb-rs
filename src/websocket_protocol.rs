@@ -3,11 +3,11 @@ use std::borrow::Cow;
 use std::borrow::Borrow;
 use std::ops::Deref;
 
-use ws::Message;
+use websocket::message::OwnedMessage as Message;
 use json;
 use json::JsonValue;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 #[allow(dead_code)]
 pub enum WebsocketMessageMetric {
     None = 0,
@@ -65,7 +65,6 @@ pub enum WebsocketMessagePayload<'a> {
     Pong
 }
 
-
 impl<'a> WebsocketMessage<'a> {
     pub fn serialize(&self) -> Message {
         match self.payload {
@@ -89,34 +88,38 @@ impl<'a> WebsocketMessage<'a> {
         }
     }
 
-    pub fn deserialize(message: &'a Message) -> Result<WebsocketMessage<'a>, ()> {
+    pub fn deserialize(message: &'a Message) -> Option<WebsocketMessage<'a>> {
         match *message {
             Message::Text(ref message) => {
                 if let Some(sep) = message.find(',') {
                     let (tag_str, payload) = message.split_at(sep + 1);
                     let tag = Cow::Borrowed(tag_str.split_at(sep).0);
 
-                    Ok(if payload.is_empty() {
+                    Some(if payload.is_empty() {
                         WebsocketMessage { tag, payload: WebsocketMessagePayload::Empty }
                     } else {
-                        WebsocketMessage { tag, payload: WebsocketMessagePayload::Json(json::parse(payload).map_err(|_| ())?) }
+                        WebsocketMessage { tag, payload: WebsocketMessagePayload::Json(json::parse(payload).ok()?) }
                     })
-                } else if message.get(0..1).map_or(false, |first| first == "!") {
-                    Ok(WebsocketMessage { tag: Cow::Borrowed(""), payload: WebsocketMessagePayload::Pong })
-                } else {
-                    Err(())
+                } 
+                else if message.get(0..1).map_or(false, |first| first == "!") {
+                    Some(WebsocketMessage { tag: Cow::Borrowed(""), payload: WebsocketMessagePayload::Pong })
                 }
-            }
+                else {
+                    None
+                }
+            },
             Message::Binary(ref message) => {
                 if let Some(sep) = message.iter().position(|x| x == &b',') {
-                    Ok(WebsocketMessage {
-                        tag: Cow::Borrowed(str::from_utf8(&message[..sep]).map_err(|_| ())?),
+                    Some(WebsocketMessage {
+                        tag: Cow::Borrowed(str::from_utf8(&message[..sep]).ok()?),
                         payload: WebsocketMessagePayload::BinarySimple(&message[(sep + 1)..])
                     })
-                } else {
-                    Err(())
                 }
-            }
+                else {
+                    None
+                }
+            },
+            _ => None
         }
     }
 }

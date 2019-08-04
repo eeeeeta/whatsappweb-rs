@@ -224,7 +224,7 @@ pub fn parse_response_status(response: &JsonValue) -> Result<()> {
     response["status"].as_u16().map_or(Ok(()), |status_code| if status_code == 200 {
         Ok(())
     } else {
-        bail_untyped! {"received status code {}", status_code}
+        return Err(WaError::StatusCode(status_code));
     })
 }
 

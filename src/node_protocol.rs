@@ -29,7 +29,7 @@ pub enum GroupCommand {
 
 #[derive(Debug)]
 pub enum AppEvent {
-    Message(Box<ChatMessage>),
+    Message(ChatMessage),
 
     MessageAck(MessageAck),
     // App only
@@ -88,7 +88,7 @@ impl AppMessage {
                         match node.desc() {
                             "message" => {
                                 if let NodeContent::Binary(ref content) = node.content {
-                                    app_events.push(AppEvent::Message(Box::new(ChatMessage::from_proto_binary(content)?)));
+                                    app_events.push(AppEvent::Message(ChatMessage::from_proto_binary(content)?));
                                 } else {
                                     bail_untyped!{ "invalid nodetype for chatmessage" }
                                 }

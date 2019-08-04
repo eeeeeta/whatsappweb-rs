@@ -56,26 +56,37 @@ impl MessageId {
 }
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Peer {
     Individual(Jid),
     Group { group: Jid, participant: Jid },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PeerAck {
     Individual(Jid),
     GroupIndividual { group: Jid, participant: Jid },
     GroupAll(Jid),
 }
 
-#[derive(Debug)]
+/// Which direction a message is going - i.e. sending or receiving.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Direction {
+    /// We're sending this message.
     Sending(Jid),
+    /// We've received this message.
     Receiving(Peer),
 }
 
 impl Direction {
+    pub fn is_sending(&self) -> bool {
+        if let Direction::Sending(_) = self {
+            true
+        }
+        else {
+            false
+        }
+    }
     fn parse(msg: &mut message_wire::WebMessageInfo) -> Result<Direction> {
         let mut key = msg.take_key();
         let remote_jid = Jid::from_str(&key.take_remoteJid())?;
@@ -483,7 +494,7 @@ impl QuotedChatMessage {
 pub struct ChatMessage {
     /// The direction of this message - i.e. who we're sending it to, or receiving it from.
     pub direction: Direction,
-    /// Timestamp.
+    /// Timestamp, in UTC.
     pub time: NaiveDateTime,
     /// Message ID - probably unique.
     pub id: MessageId,
@@ -494,13 +505,24 @@ pub struct ChatMessage {
 }
 
 impl ChatMessage {
-    pub fn from_proto_binary(content: &[u8]) -> Result<ChatMessage> {
+    /// Create a new message, addressed to a specific JID.
+    pub fn new(to: Jid, content: ChatMessageContent) -> Self {
+        let message_id = MessageId::generate();
+        Self {
+            content,
+            time: chrono::Utc::now().naive_utc(),
+            direction: Direction::Sending(to),
+            id: message_id,
+            quoted: None
+        }
+    }
+    pub(crate) fn from_proto_binary(content: &[u8]) -> Result<ChatMessage> {
         let webmessage = protobuf::parse_from_bytes::<message_wire::WebMessageInfo>(content).map_err(|_| "Invalid Protobuf chatmessage")?;
         ChatMessage::from_proto(webmessage)
     }
 
 
-    pub fn from_proto(mut webmessage: message_wire::WebMessageInfo) -> Result<ChatMessage> {
+    pub(crate) fn from_proto(mut webmessage: message_wire::WebMessageInfo) -> Result<ChatMessage> {
         debug!("Processing WebMessageInfo: {:?}", &webmessage);
         let mut msg = webmessage.take_message();
         let quoted = QuotedChatMessage::from_message(&mut msg)?;
@@ -513,12 +535,12 @@ impl ChatMessage {
         })
     }
 
-    pub fn into_proto_binary(self) -> Vec<u8> {
+    pub(crate) fn into_proto_binary(self) -> Vec<u8> {
         let webmessage = self.into_proto();
         webmessage.write_to_bytes().unwrap()
     }
 
-    pub fn into_proto(self) -> message_wire::WebMessageInfo {
+    pub(crate) fn into_proto(self) -> message_wire::WebMessageInfo {
         let mut webmessage = message_wire::WebMessageInfo::new();
         let mut key = message_wire::MessageKey::new();
 
