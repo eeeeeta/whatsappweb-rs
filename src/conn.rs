@@ -109,8 +109,7 @@ impl Stream for WebConnection {
                     self.on_message(m)?;
                 },
                 None => {
-                    // FIXME: nicer disconnection handling
-                    return Ok(Async::Ready(None));
+                    Err(WaError::WebsocketDisconnected)?
                 }
             }
         }

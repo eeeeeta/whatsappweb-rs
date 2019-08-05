@@ -90,6 +90,8 @@ pub enum WaError {
         InvalidDirection,
         #[fail(display = "connection timed out")]
         Timeout,
+        #[fail(display = "websocket disconnected")]
+        WebsocketDisconnected,
         #[fail(display = "timer failed")]
         TimerFailed,
         #[fail(display = "received status code {}", _0)]
