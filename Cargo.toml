@@ -19,7 +19,7 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 ws = { version = "0.8", features = ["ssl"] }
 log = "0.4"
-url = "~1.7"
+url = "~2.1"
 json = "0.11"
 ring = "0.14"
 base64 = "0.10"
