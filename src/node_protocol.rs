@@ -384,6 +384,7 @@ impl MessageAckLevel {
             "message" => MessageAckLevel::Received,
             "played" => MessageAckLevel::Played,
             "read" => MessageAckLevel::Read,
+            "error" => MessageAckLevel::Error,
             _ => bail_untyped!{"invalid message ack level {}", value}
         })
     }

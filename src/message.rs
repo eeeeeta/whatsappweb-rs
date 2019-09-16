@@ -109,6 +109,7 @@ pub enum MessageAckLevel {
     Received = 2,
     Read = 3,
     Played = 4,
+    Error
 }
 
 #[derive(Debug)]
