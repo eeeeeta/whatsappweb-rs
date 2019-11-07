@@ -78,61 +78,70 @@ pub enum AppMessage {
 
 
 impl AppMessage {
+    fn deserialize_action(mut node: Node) -> Result<Option<AppEvent>> {
+        match node.desc() {
+            "message" => {
+                if let NodeContent::Binary(ref content) = node.content {
+                    Ok(Some(AppEvent::Message(ChatMessage::from_proto_binary(content)?)))
+                } else {
+                    bail_untyped!{ "invalid nodetype for chatmessage" }
+                }
+            }
+            "received" => {
+                Ok(Some(AppEvent::MessageAck(
+                        MessageAck::from_app_message(MessageId(node.take_attribute("index")?.into_string()),
+                        MessageAckLevel::from_node(node.get_attribute("type")?.as_str())?,
+                        node.take_attribute("jid")?.into_jid()?,
+                        node.take_attribute("participant").and_then(|participant| participant.into_jid()).ok(),
+                        node.take_attribute("owner")?.as_str().parse().map_err(|_| "NAN")?))))
+            }
+            "read" => {
+                let jid = node.take_attribute("jid")?.into_jid()?;
+                Ok(Some(AppEvent::ChatAction(jid, if node.take_attribute("type").ok().map_or(true, |typ| typ.as_str() != "false") {
+                    ChatAction::Read
+                } else {
+                    ChatAction::Unread
+                })))
+            }
+            "user" => {
+                let contact = Contact::parse_node(&mut node)?;
+                Ok(Some(if contact.name.is_some() {
+                    AppEvent::ContactAddChange(contact)
+                } else {
+                    AppEvent::ContactDelete(contact.jid)
+                }))
+            }
+            "chat" => {
+                let jid = node.take_attribute("jid")?.into_jid()?;
+                let action = ChatAction::from_node(&mut node)?;
+                Ok(Some(AppEvent::ChatAction(jid, action)))
+            }
+            "battery" => {
+                let level = node.take_attribute("value")?.as_str().parse().map_err(|_| "NAN")?;
+                Ok(Some(AppEvent::Battery(level)))
+            }
+            _ => Ok(None)
+        }
+    }
     pub fn deserialize(root_node: Node) -> Result<AppMessage> {
         let event_type = root_node.get_attribute("add").and_then(|add| MessageEventType::from_node(add.as_str())).ok();
         match root_node.desc() {
             "action" => {
                 if let NodeContent::List(list) = root_node.content {
                     let mut app_events = Vec::with_capacity(list.len());
-                    for mut node in list {
-                        match node.desc() {
-                            "message" => {
-                                if let NodeContent::Binary(ref content) = node.content {
-                                    app_events.push(AppEvent::Message(ChatMessage::from_proto_binary(content)?));
-                                } else {
-                                    bail_untyped!{ "invalid nodetype for chatmessage" }
-                                }
-                            }
-                            "received" => {
-                                app_events.push(AppEvent::MessageAck(
-                                    MessageAck::from_app_message(MessageId(node.take_attribute("index")?.into_string()),
-                                                                 MessageAckLevel::from_node(node.get_attribute("type")?.as_str())?,
-                                                                 node.take_attribute("jid")?.into_jid()?,
-                                                                 node.take_attribute("participant").and_then(|participant| participant.into_jid()).ok(),
-                                                                 node.take_attribute("owner")?.as_str().parse().map_err(|_| "NAN")?)))
-                            }
-                            "read" => {
-                                let jid = node.take_attribute("jid")?.into_jid()?;
-                                app_events.push(AppEvent::ChatAction(jid, if node.take_attribute("type").ok().map_or(true, |typ| typ.as_str() != "false") {
-                                    ChatAction::Read
-                                } else {
-                                    ChatAction::Unread
-                                }));
-                            }
-                            "user" => {
-                                let contact = Contact::parse_node(&mut node)?;
-                                app_events.push(if contact.name.is_some() {
-                                    AppEvent::ContactAddChange(contact)
-                                } else {
-                                    AppEvent::ContactDelete(contact.jid)
-                                })
-                            }
-                            "chat" => {
-                                let jid = node.take_attribute("jid")?.into_jid()?;
-                                let action = ChatAction::from_node(&mut node)?;
-                                app_events.push(AppEvent::ChatAction(jid, action));
-                            }
-                            "battery" => {
-                                let level = node.take_attribute("value")?.as_str().parse().map_err(|_| "NAN")?;
-                                app_events.push(AppEvent::Battery(level));
+                    for node in list {
+                        let desc = node.desc().to_owned();
+                        match Self::deserialize_action(node) {
+                            Ok(Some(x)) => app_events.push(x),
+                            Err(e) => {
+                                warn!("failed to deserialize chat action (desc {}): {}", desc, e);
                             }
                             _ => {}
                         }
                     }
-
                     Ok(AppMessage::MessagesEvents(event_type, app_events))
                 } else {
-                    bail_untyped!{ "invalid or unsupported action type: {:?}", root_node.content }
+                    bail_untyped!{ "invalid action type: {:?}", root_node.content }
                 }
             }
             "response" => {
@@ -165,10 +174,10 @@ impl AppMessage {
                             _ => bail_untyped!{ "Invalid nodetype for chats" }
                         }
                     }
-                    _ =>  bail_untyped!{ "invalid or unsupported 'response' type"}
+                    x => bail_untyped!{ "invalid 'response' type {}", x}
                 }
             }
-            _ => bail_untyped!{ "invalid or unsupported app message type"}
+            x => bail_untyped!{ "invalid app message type {}", x}
         }
     }
     pub fn serialize(self, epoch: u32) -> Node {
@@ -444,7 +453,7 @@ impl ChatAction {
                     ChatAction::Unmute
                 }
             }
-            _ => bail_untyped!{ "invalid or unsupported chat action type"}
+            x => bail_untyped!{ "invalid chat action type {}", x }
         })
     }
 }
