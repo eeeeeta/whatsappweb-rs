@@ -490,6 +490,9 @@ impl QuotedChatMessage {
         Ok(Some(Self { participant, content }))
     }
 }
+
+pub use crate::message_wire::WebMessageInfo_WEB_MESSAGE_INFO_STUBTYPE as MessageStubType;
+
 /// A WhatsApp message.
 #[derive(Debug)]
 pub struct ChatMessage {
@@ -502,7 +505,9 @@ pub struct ChatMessage {
     /// The message contents.
     pub content: ChatMessageContent,
     /// The message this message is in reply to (or quoting), if any.
-    pub quoted: Option<QuotedChatMessage>
+    pub quoted: Option<QuotedChatMessage>,
+    /// If this message has a stub type, that stub type.
+    pub stub_type: Option<MessageStubType>
 }
 
 impl ChatMessage {
@@ -514,7 +519,8 @@ impl ChatMessage {
             time: chrono::Utc::now().naive_utc(),
             direction: Direction::Sending(to),
             id: message_id,
-            quoted: None
+            quoted: None,
+            stub_type: None
         }
     }
     pub(crate) fn from_proto_binary(content: &[u8]) -> Result<ChatMessage> {
@@ -527,12 +533,18 @@ impl ChatMessage {
         debug!("Processing WebMessageInfo: {:?}", &webmessage);
         let mut msg = webmessage.take_message();
         let quoted = QuotedChatMessage::from_message(&mut msg)?;
+        let stub_type = if webmessage.has_messageStubType() {
+            Some(webmessage.get_messageStubType())
+        }
+        else {
+            None
+        };
         Ok(ChatMessage {
             id: MessageId(webmessage.mut_key().take_id()),
             direction: Direction::parse(&mut webmessage)?,
             time: NaiveDateTime::from_timestamp(webmessage.get_messageTimestamp() as i64, 0),
             content: ChatMessageContent::from_proto(msg)?,
-            quoted
+            quoted, stub_type
         })
     }
 
