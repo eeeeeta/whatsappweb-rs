@@ -229,7 +229,7 @@ pub fn parse_response_status(response: &JsonValue) -> Result<()> {
 }
 
 pub fn build_init_request(client_id: &str) -> JsonValue {
-    array!["admin", "init", array![0, 3, 3324], array!["ww-rs", "ww-rs"], client_id, true]
+    array!["admin", "init", array![0, 4, 1307], array!["ww-rs", "ww-rs"], client_id, true]
 }
 
 pub fn parse_init_response<'a>(response: &'a JsonValue) -> Result<&'a str> {
