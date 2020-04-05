@@ -8,6 +8,8 @@ use crate::node_protocol::{AppEvent, AppMessage, MessageEventType, GroupCommand,
 use crate::json_protocol;
 use crate::errors::*;
 
+use std::pin::Pin;
+
 pub use uuid::Uuid;
 
 pub enum WaRequest {
@@ -72,7 +74,7 @@ pub enum WaRequest {
     GetGroupMetadata(Jid),
 }
 impl WaRequest {
-    pub(crate) fn apply(self, conn: &mut WebConnection) -> Result<()> {
+    pub(crate) fn apply(self, mut conn: Pin<&mut WebConnection>) -> Result<()> {
         use self::WaRequest::*;
 
         match self {

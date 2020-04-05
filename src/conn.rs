@@ -1,19 +1,22 @@
 //! Connecting to WhatsApp Web via the websocket protocol.
-//! 
+//!
 //! This is a reimplementation of the original `connection` module,
 //! using `futures` and somewhat sane coding practices.
 
-use websocket as ws;
-use ws::client::r#async::{TlsStream, TcpStream, Client};
-use ws::OwnedMessage;
+use tokio_tungstenite as ws;
+use ws::MaybeTlsStream;
+use ws::tungstenite::Message;
+use tokio::net::TcpStream;
 use std::collections::HashMap;
 use json::JsonValue;
 use qrcode::QrCode;
 use uuid::Uuid;
 use std::collections::VecDeque;
-use futures::{Sink, Async, Poll, Future, Stream, StartSend, AsyncSink};
-use tokio_timer::{Interval, Delay};
+use core::task::{Context, Poll};
+use futures::{Sink, Future, FutureExt, Stream};
+use tokio::time::{Interval, Delay};
 use std::time::{Duration, Instant};
+use std::pin::Pin;
 
 use crate::req::WaRequest;
 use crate::session::{SessionState, PersistentSession};
@@ -31,7 +34,7 @@ const ENDPOINT_URL: &str = "wss://web.whatsapp.com/ws";
 /// WhatsApp Web WebSocker origin header value.
 const ORIGIN_URL: &str = "https://web.whatsapp.com";
 
-type WsClient = Client<TlsStream<TcpStream>>;
+type WsClient = ws::WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 #[derive(Clone, Debug)]
 pub(crate) enum CallbackType {
@@ -92,17 +95,17 @@ pub struct WebConnection {
     epoch: u32,
     ping_timer: Interval,
     response_timer: Option<Delay>,
-    ws_outbox: VecDeque<OwnedMessage>,
+    ws_outbox: VecDeque<ws::tungstenite::Message>,
     outbox: VecDeque<WaEvent>,
     user_jid: Option<Jid>
 }
+impl std::marker::Unpin for WebConnection {}
 
 impl Stream for WebConnection {
-    type Item = WaEvent;
-    type Error = WaError;
+    type Item = WaResult<WaEvent>;
 
-    fn poll(&mut self) -> Poll<Option<WaEvent>, WaError> {
-        while let Async::Ready(m) = self.inner.poll()? {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<WaResult<WaEvent>>> {
+        while let Poll::Ready(m) = Pin::new(&mut self.inner).poll_next(cx)? {
             match m {
                 Some(m) => {
                     self.response_timer = None;
@@ -113,45 +116,64 @@ impl Stream for WebConnection {
                 }
             }
         }
-        if let Async::Ready(_) = self.ping_timer.poll().map_err(|_| WaError::TimerFailed)? {
+        if let Poll::Ready(_) = Pin::new(&mut self.ping_timer).poll_tick(cx) {
             self.on_ping_timer();
         }
-        match self.response_timer.as_mut().map(|x| x.poll()) {            
-            Some(Ok(Async::Ready(_))) => Err(WaError::Timeout)?,
-            Some(Err(_)) => Err(WaError::TimerFailed)?,
+        match self.response_timer.as_mut().map(|mut x| Pin::new(&mut x).poll(cx)) {
+            Some(Poll::Ready(_)) => Err(WaError::Timeout)?,
             _ => {}
         }
         match self.outbox.pop_front() {
-            Some(evt) => Ok(Async::Ready(Some(evt))),
-            None => Ok(Async::NotReady)
+            Some(evt) => Poll::Ready(Some(Ok(evt))),
+            None => Poll::Pending,
         }
     }
 }
 
-impl Sink for WebConnection {
-    type SinkItem = WaRequest;
-    type SinkError = WaError;
-    /// Note that this method will never return `AsyncSink::NotReady(_)`,
-    /// so feel free to use that to make your futures code somewhat nicer.
-    fn start_send(&mut self, item: WaRequest) -> StartSend<WaRequest, WaError> {
-        item.apply(self)?;
-        Ok(AsyncSink::Ready)
+impl Sink<WaRequest> for WebConnection {
+    type Error = WaError;
+
+    fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<WaResult<()>> {
+        match Pin::new(&mut self.inner).poll_ready(cx) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(r) => Poll::Ready(r.map_err(|e| WaError::from(e))),
+        }
     }
-    fn poll_complete(&mut self) -> Poll<(), WaError> {
-        while let Some(msg) = self.ws_outbox.pop_front() {
-            match self.inner.start_send(msg)? {
-                AsyncSink::Ready => {},
-                AsyncSink::NotReady(v) => {
-                    self.ws_outbox.push_front(v);
+
+    fn start_send(self: Pin<&mut Self>, item: WaRequest) -> WaResult<()> {
+        item.apply(self)?;
+        Ok(())
+    }
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<WaResult<()>> {
+        loop {
+            while let Some(msg) = self.ws_outbox.pop_front() {
+                match Pin::new(&mut self.inner).poll_ready(cx)? {
+                    Poll::Pending => {
+                        self.ws_outbox.push_front(msg);
+                        return Poll::Pending;
+                    },
+                    Poll::Ready(_) => {},
                 }
+
+                Pin::new(&mut self.inner).start_send(msg)?;
+            }
+            match Pin::new(&mut self.inner).poll_flush(cx) {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(Err(e)) => return Poll::Ready(Err(WaError::from(e))),
+                _ => {},
+            }
+            if self.ws_outbox.len() > 0 {
+                continue;
+            }
+            else {
+                break Poll::Ready(Ok(()));
             }
         }
-        let ret = self.inner.poll_complete()?;
-        if self.ws_outbox.len() > 0 {
-            Ok(Async::NotReady)
-        }
-        else {
-            Ok(ret)
+    }
+    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<WaResult<()>> {
+        match Pin::new(&mut self.inner).poll_close(cx) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(r) => Poll::Ready(r.map_err(|e| WaError::from(e))),
         }
     }
 }
@@ -165,7 +187,6 @@ impl Sink for WebConnection {
 impl WebConnection {
     // This `impl` block: connecting and instantiating
     fn setup(sess: SessionState, ws: WsClient) -> Self {
-        let now = Instant::now();
         let mut ret = Self {
             inner: ws,
             session_state: sess,
@@ -174,30 +195,32 @@ impl WebConnection {
             epoch: 0,
             ws_outbox: VecDeque::new(),
             outbox: VecDeque::new(),
-            ping_timer: Interval::new(now, Duration::new(13, 0)),
+            ping_timer: tokio::time::interval(Duration::new(13, 0)),
             response_timer: None,
             user_jid: None
         };
         ret.on_connected();
         ret
     }
-    fn ws_connect(sess: SessionState) -> impl Future<Item = Self, Error = WaError> {
-        use websocket::ClientBuilder;
+    fn ws_connect(sess: SessionState) -> impl Future<Output=WaResult<Self>> {
+        let req = http::Request::builder()
+            .uri(ENDPOINT_URL)
+            .header("Origin", ORIGIN_URL)
+            .body(()).expect("invalid ENDPOINT_URL or ORIGIN_URL");
 
-        let fut = ClientBuilder::new(ENDPOINT_URL)
-            .expect("invalid ENDPOINT_URL")
-            .origin(ORIGIN_URL.into())
-            .async_connect_secure(None)
-            .map(|(ws, _)| WebConnection::setup(sess, ws))
-            .map_err(|e| WaError::from(e));
+        let fut = tokio_tungstenite::connect_async(req)
+            .map(|r| r
+                .map(|ws| WebConnection::setup(sess, ws.0))
+                .map_err(|e| WaError::from(e))
+            );
         fut
     }
     /// Connect to WhatsApp Web, starting a new session.
-    pub fn connect_new() -> impl Future<Item = Self, Error = WaError> {
+    pub fn connect_new() -> impl Future<Output=WaResult<Self>> {
         Self::ws_connect(SessionState::pending_new())
     }
     /// Connect to WhatsApp Web, reusing an old persistent session.
-    pub fn connect_persistent(sess: PersistentSession) -> impl Future<Item = Self, Error = WaError> {
+    pub fn connect_persistent(sess: PersistentSession) -> impl Future<Output=WaResult<Self>> {
         Self::ws_connect(SessionState::pending_persistent(sess))
     }
 }
@@ -320,7 +343,7 @@ impl WebConnection {
         use crate::json_protocol::LowLevelAck;
 
         debug!("Processing message ack for {}", mid.0);
-        
+
         let LowLevelAck { status_code, timestamp } = LowLevelAck::deserialize(&p)?;
         if status_code != 200 {
             self.outbox.push_back(WaEvent::MessageSendFail {
@@ -468,16 +491,16 @@ impl WebConnection {
             SessionState::PendingPersistent { ref persistent_session, .. } => persistent_session,
             _ => Err(WaError::InvalidSessionState)?
         };
-        
+
         let signature = crypto::sign_challenge(&persist.mac, challenge);
         let resp = json_protocol::build_challenge_response(
-            persist.server_token.as_str(), 
+            persist.server_token.as_str(),
             &base64::encode(&persist.client_id),
             signature.as_ref());
 
         self.send_json_message(resp, CallbackType::CheckStatus);
         Ok(())
-    } 
+    }
     fn generate_empty_ack(&mut self, mid: String) -> Result<()> {
         use crate::message::{MessageAckLevel, MessageAckSide, MessageAck};
 
@@ -540,11 +563,11 @@ impl WebConnection {
         self.send_json_message(init_command, callback_type);
     }
     fn on_ping_timer(&mut self) {
-        self.ws_outbox.push_front(OwnedMessage::Text("?,,".into()));
-        let deadline = Instant::now() + Duration::new(3, 0);
-        self.response_timer = Some(Delay::new(deadline));
+        self.ws_outbox.push_front(Message::Text("?,,".into()));
+        let deadline = tokio::time::Instant::from_std(Instant::now() + Duration::new(3, 0));
+        self.response_timer = Some(tokio::time::delay_until(deadline));
     }
-    fn on_message(&mut self, m: OwnedMessage) -> Result<()> {
+    fn on_message(&mut self, m: Message) -> Result<()> {
         trace!("<-- {:?}", m);
         let message = match WebsocketMessage::deserialize(&m) {
             Some(m) => m,

@@ -1,5 +1,4 @@
 use std::io;
-use websocket;
 use ring;
 #[cfg(feature = "media")]
 use reqwest;
@@ -56,7 +55,7 @@ pub enum WaError {
         #[fail(display = "I/O error: {}", _0)]
         Io(io::Error),
         #[fail(display = "WebSocket error: {}", _0)]
-        Websocket(websocket::WebSocketError),
+        Websocket(tokio_tungstenite::tungstenite::Error),
         #[fail(display = "Crypto error: {}", _0)]
         Crypto(ring::error::Unspecified),
         #[cfg(feature = "media")]
@@ -69,7 +68,7 @@ pub enum WaError {
         #[fail(display = "Protobuf error: {}", _0)]
         Protobuf(protobuf::ProtobufError),
         #[fail(display = "QR code error: {}", _0)]
-        Qr(qrcode::types::QrError), 
+        Qr(qrcode::types::QrError),
         #[fail(display = "Missing node attribute \"{}\"", _0)]
         NodeAttributeMissing(&'static str),
         #[fail(display = "Missing JSON field \"{}\"", _0)]
@@ -110,7 +109,7 @@ pub(crate) type Result<T> = WaResult<T>;
 
 impl_from_for_error!(WaError,
                      Io => io::Error,
-                     Websocket => websocket::WebSocketError,
+                     Websocket => tokio_tungstenite::tungstenite::Error,
                      Crypto => ring::error::Unspecified,
                      Json => json::Error,
                      Base64 => base64::DecodeError,

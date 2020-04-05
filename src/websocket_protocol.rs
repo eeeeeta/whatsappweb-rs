@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use std::borrow::Borrow;
 use std::ops::Deref;
 
-use websocket::message::OwnedMessage as Message;
+use tokio_tungstenite::tungstenite::Message;
 use json;
 use json::JsonValue;
 
@@ -100,7 +100,7 @@ impl<'a> WebsocketMessage<'a> {
                     } else {
                         WebsocketMessage { tag, payload: WebsocketMessagePayload::Json(json::parse(payload).ok()?) }
                     })
-                } 
+                }
                 else if message.get(0..1).map_or(false, |first| first == "!") {
                     Some(WebsocketMessage { tag: Cow::Borrowed(""), payload: WebsocketMessagePayload::Pong })
                 }
