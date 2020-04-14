@@ -71,7 +71,7 @@ pub enum WaEvent {
     /// A message was acknowledged (as being sent, delivered, read, ...)
     MessageAck(crate::message::MessageAck),
     /// A user changed their status text.
-    /// 
+    ///
     /// This event is also fired when a user's status is manually requested.
     ProfileStatus {
         /// The JID of the user.
@@ -159,6 +159,12 @@ pub enum WaEvent {
         uuid: Uuid,
         /// The URL to upload the file to.
         url: String
+    },
+    MediaConn {
+        uuid: Uuid,
+        auth: String,
+        ttl: NaiveDateTime,
+        hosts: Vec<String>
     },
     /// The phone's battery level changed to a number of percentage points.
     BatteryLevel(u8)

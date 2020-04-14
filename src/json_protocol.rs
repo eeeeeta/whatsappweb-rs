@@ -38,7 +38,7 @@ pub enum ServerMessage<'a> {
 
 
 impl<'a> ServerMessage<'a> {
-    pub fn deserialize(json: &'a JsonValue) -> Result<ServerMessage<'a>> { 
+    pub fn deserialize(json: &'a JsonValue) -> Result<ServerMessage<'a>> {
         let opcode = json[0].as_str().ok_or("server message without opcode")?;
         let payload = &json[1];
 
@@ -258,9 +258,39 @@ pub fn build_file_upload_request(hash: &[u8], media_type: MediaType) -> JsonValu
     }, base64::encode(hash)]
 }
 
+pub fn build_media_conn_request() -> JsonValue {
+    array!["query", "mediaConn"]
+}
+
 pub fn parse_file_upload_response<'a>(response: &'a JsonValue) -> Result<&'a str> {
     parse_response_status(response)?;
     response.get_str("url")
+}
+
+pub fn parse_media_conn_response<'a>(response: &'a JsonValue) -> Result<(&'a str, i64, Vec<&'a str>)> {
+    parse_response_status(response)?;
+
+    match response["media_conn"] {
+        ref obj @ JsonValue::Object(_) => {
+            let hosts = &obj["hosts"];
+
+            Ok((
+                obj.get_str("auth")?,
+                obj.get_i64("ttl")?,
+                (0..hosts.len()).into_iter()
+                    .map(|x| hosts[x]["hostname"]
+                        .as_str()
+                        .ok_or(WaError::JsonFieldMissing("hostname"))
+                    )
+                    .fold(Ok(Vec::<&'a str>::new()), |a: Result<Vec::<&'a str>>, b| {
+                        let mut a = a?;
+                        a.push(b?);
+                        Ok(a)
+                    })?
+            ))
+        },
+        _ => Err(WaError::JsonFieldMissing("media_conn is not object")),
+    }
 }
 
 pub fn build_profile_picture_request(jid: &Jid) -> JsonValue {
