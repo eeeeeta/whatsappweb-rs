@@ -161,9 +161,13 @@ pub enum WaEvent {
         url: String
     },
     MediaConn {
+        /// The UUID associated with the media conn request
         uuid: Uuid,
+        /// The auth string to be used on the media upload
         auth: String,
+        /// The point in time when the auth stops being valid
         ttl: NaiveDateTime,
+        /// List of hosts available for the upload
         hosts: Vec<String>
     },
     /// The phone's battery level changed to a number of percentage points.

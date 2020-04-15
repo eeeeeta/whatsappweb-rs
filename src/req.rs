@@ -122,7 +122,7 @@ impl WaRequest {
                 let req = json_protocol::build_file_upload_request(&hash, media_type);
                 conn.send_json_message(req, CallbackType::FileUpload { uuid });
             },
-            RequestMediaConn {uuid} => {
+            RequestMediaConn { uuid } => {
                 let req = json_protocol::build_media_conn_request();
                 conn.send_json_message(req, CallbackType::MediaConn { uuid });
             }

@@ -4,7 +4,6 @@ extern crate image;
 
 use std::io::Cursor;
 
-// use crate::json_protocol::JsonNonNull;
 use image::{GenericImageView, RGB};
 use image::jpeg::JPEGEncoder;
 use reqwest;
@@ -73,7 +72,6 @@ pub async fn upload_file(file: &[u8], mime: String, media_type: MediaType, auth:
         .user_agent("curl/7.69.1")
         .build()?;
 
-    eprintln!("{}", url);
     let response = client
         .post(&url.to_string())
         .query(&[
