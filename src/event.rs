@@ -168,7 +168,7 @@ pub enum WaEvent {
         /// The point in time when the auth stops being valid
         ttl: NaiveDateTime,
         /// List of hosts available for the upload
-        hosts: Vec<String>
+        hosts: Vec<url::Host>
     },
     /// The phone's battery level changed to a number of percentage points.
     BatteryLevel(u8)

@@ -388,7 +388,14 @@ impl WebConnection {
             uuid,
             auth: resp.0.into(),
             ttl: chrono::Utc::now().naive_utc() + chrono::Duration::milliseconds(resp.1),
-            hosts:  resp.2.into_iter().map(|x| x.into()).collect(),
+            hosts:
+                resp.2
+                .into_iter()
+                .map(|x| url::Host::parse(x))
+                .filter_map(|x| match x {
+                    Ok(x) => Some(x),
+                    Err(_) => None,
+                }).collect(),
         });
         Ok(())
     }

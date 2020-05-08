@@ -7,6 +7,7 @@ use std::io::Cursor;
 use image::{GenericImageView, RGB};
 use image::jpeg::JPEGEncoder;
 use reqwest;
+use url::Host;
 
 use crate::MediaType;
 use crate::crypto;
@@ -57,7 +58,7 @@ fn path_for(media_type: MediaType) -> [&'static str; 2] {
 }
 
 /// Upload file to servers and encrypt it
-pub async fn upload_file(file: &[u8], mime: String, media_type: MediaType, auth: &str, host: &str) -> Result<FileInfo> {
+pub async fn upload_file(file: &[u8], mime: String, media_type: MediaType, auth: &str, host: &Host) -> Result<FileInfo> {
      let sha256 = crypto::sha256(file);
 
     let (file_encrypted, key) = crypto::encrypt_media_message(media_type, file);
