@@ -40,8 +40,7 @@ pub async fn download_file(file_info: FileInfo, media_type: MediaType) -> Result
         .await?;
 
     if response.status() != reqwest::StatusCode::from_u16(200).unwrap() {
-        error!("{:?}", response);
-        return Err(WaError::Untyped("Non 200 status received"));
+        return Err(WaError::HttpError(response.status(), response.text().await?));
     }
     let cyphertext = response.bytes().await?;
 
@@ -87,9 +86,7 @@ pub async fn upload_file(file: &[u8], mime: String, media_type: MediaType, auth:
 
 
     if response.status() != reqwest::StatusCode::from_u16(200).unwrap() {
-        error!("{:?}", response);
-        error!("{:?}", response.text().await?);
-        return Err(WaError::Untyped("Non 200 status received"));
+        return Err(WaError::HttpError(response.status(), response.text().await?));
     }
 
     let text = response.text().await?;

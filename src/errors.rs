@@ -61,6 +61,9 @@ pub enum WaError {
         #[cfg(feature = "media")]
         #[fail(display = "reqwest error: {}", _0)]
         Reqwest(reqwest::Error),
+        #[cfg(feature = "media")]
+        #[fail(display = "http error code {}, message: {}", _0, _1)]
+        HttpError(reqwest::StatusCode, String),
         #[fail(display = "JSON error: {}", _0)]
         Json(json::Error),
         #[fail(display = "base64 decode error: {}", _0)]
