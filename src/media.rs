@@ -13,6 +13,7 @@ use crate::crypto;
 use crate::message::FileInfo;
 use crate::errors::*;
 
+const USER_AGENT: &'static str = concat!("ww-rs-eta/", env!("CARGO_PKG_VERSION"));
 
 pub fn generate_thumbnail_and_get_size(image: &[u8]) -> (Vec<u8>, (u32, u32)) {
     let image = image::load_from_memory(image).unwrap();
@@ -30,7 +31,7 @@ pub fn generate_thumbnail_and_get_size(image: &[u8]) -> (Vec<u8>, (u32, u32)) {
 /// Download file from servers and decrypt it
 pub async fn download_file(file_info: FileInfo, media_type: MediaType) -> Result<Vec<u8>> {
     let client = reqwest::Client::builder()
-        .user_agent("curl/7.69.1")
+        .user_agent(USER_AGENT)
         .build()?;
     let response = client
         .get(&file_info.url)
@@ -69,7 +70,7 @@ pub async fn upload_file(file: &[u8], mime: String, media_type: MediaType, auth:
         .push(&token);
 
     let client = reqwest::Client::builder()
-        .user_agent("curl/7.69.1")
+        .user_agent(USER_AGENT)
         .build()?;
 
     let response = client
