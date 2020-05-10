@@ -51,6 +51,8 @@ pub(crate) enum CallbackType {
     MessagesBefore { uuid: Uuid },
     /// Handle a file upload response.
     FileUpload { uuid: Uuid },
+    /// Handle a media conn response.
+    MediaConn { uuid: Uuid },
     /// Handle a profile picture response.
     ProfilePicture { jid: Jid },
     /// Handle a profile status response.
@@ -380,6 +382,23 @@ impl WebConnection {
         });
         Ok(())
     }
+    fn ct_media_conn(&mut self, p: JsonValue, uuid: Uuid) -> Result<()> {
+        let resp = json_protocol::parse_media_conn_response(&p)?;
+        self.outbox.push_back(WaEvent::MediaConn {
+            uuid,
+            auth: resp.0.into(),
+            ttl: chrono::Utc::now().naive_utc() + chrono::Duration::milliseconds(resp.1),
+            hosts:
+                resp.2
+                .into_iter()
+                .map(|x| url::Host::parse(x))
+                .filter_map(|x| match x {
+                    Ok(x) => Some(x),
+                    Err(_) => None,
+                }).collect(),
+        });
+        Ok(())
+    }
     fn ct_profile_picture(&mut self, p: JsonValue, jid: Jid) -> Result<()> {
         let pict = json_protocol::parse_profile_picture_response(&p);
         self.outbox.push_back(WaEvent::ProfilePicture {
@@ -421,6 +440,7 @@ impl WebConnection {
             CheckStatus => self.ct_check_status(j),
             ProcessAck { mid }  => self.ct_process_ack(j, mid),
             FileUpload { uuid } => self.ct_file_upload(j, uuid),
+            MediaConn { uuid } => self.ct_media_conn(j, uuid),
             ProfilePicture { jid } => self.ct_profile_picture(j, jid),
             ProfileStatus { jid } => self.ct_profile_status(j, jid),
             GroupMetadata => self.ct_group_metadata(j),

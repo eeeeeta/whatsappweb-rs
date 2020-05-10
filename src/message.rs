@@ -177,11 +177,9 @@ pub struct FileInfo {
     pub url: String,
     /// The file's MIME type.
     pub mime: String,
-    /// The SHA256 of this file when encrypted (as you'll download it).
-    pub sha256: Vec<u8>,
     /// The SHA256 of this file when decrypted.
-    ///
-    /// **Note:** This seems to be wrong for some unknown reason.
+    pub sha256: Vec<u8>,
+    /// The SHA256 of this file when encrypted (as you'll download it).
     pub enc_sha256: Vec<u8>,
     /// The file size, in bytes.
     pub size: usize,
@@ -212,7 +210,9 @@ pub enum ChatMessageContent {
         /// Information about the audio file itself.
         info: FileInfo,
         /// How long the file lasts.
-        dur: Duration
+        dur: Duration,
+        /// If the audio is push-to-talk
+        ptt: bool,
     },
     /// Some recorded video.
     Video {
@@ -269,7 +269,7 @@ pub enum ChatMessageContent {
         mid: MessageId
     },
     /// An unimplemented message type.
-    /// 
+    ///
     /// The text contains a debug version of the raw protobuf message.
     Unimplemented(String)
 }
@@ -342,13 +342,6 @@ impl ChatMessageContent {
                 caption
             });
         }
-        if message.has_audioMessage() {
-            let mut amsg = message.take_audioMessage();
-            return Ok(Audio {
-                info: get_fileinfo!(amsg),
-                dur: Duration::new(u64::from(amsg.get_seconds()), 0)
-            });
-        }
         if message.has_videoMessage() {
             let mut vmsg = message.take_videoMessage();
             return Ok(Video {
@@ -361,7 +354,8 @@ impl ChatMessageContent {
             let mut amsg = message.take_audioMessage();
             return Ok(Audio {
                 info: get_fileinfo!(amsg),
-                dur: Duration::new(u64::from(amsg.get_seconds()), 0)
+                dur: Duration::new(u64::from(amsg.get_seconds()), 0),
+                ptt: amsg.get_ptt(),
             });
         }
         if message.has_documentMessage() {
@@ -441,6 +435,19 @@ impl ChatMessageContent {
                 document_message.set_mediaKey(info.key);
                 document_message.set_fileName(filename);
                 message.set_documentMessage(document_message);
+            }
+            ChatMessageContent::Audio {info, dur, ptt} => {
+                let mut audio_message = message_wire::AudioMessage::new();
+                audio_message.set_url(info.url);
+                audio_message.set_mimetype(info.mime);
+                audio_message.set_fileEncSha256(info.enc_sha256);
+                audio_message.set_fileSha256(info.sha256);
+                audio_message.set_fileLength(info.size as u64);
+                audio_message.set_mediaKey(info.key);
+                audio_message.set_ptt(ptt);
+                audio_message.set_seconds(dur.as_secs() as u32);
+                //FIXME missing sidecar
+                message.set_audioMessage(audio_message);
             }
             _ => unimplemented!()
         }

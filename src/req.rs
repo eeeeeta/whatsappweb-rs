@@ -69,6 +69,9 @@ pub enum WaRequest {
         media_type: MediaType,
         uuid: Uuid,
     },
+    RequestMediaConn {
+        uuid: Uuid,
+    },
     GetProfilePicture(Jid),
     GetProfileStatus(Jid),
     GetGroupMetadata(Jid),
@@ -119,6 +122,10 @@ impl WaRequest {
                 let req = json_protocol::build_file_upload_request(&hash, media_type);
                 conn.send_json_message(req, CallbackType::FileUpload { uuid });
             },
+            RequestMediaConn { uuid } => {
+                let req = json_protocol::build_media_conn_request();
+                conn.send_json_message(req, CallbackType::MediaConn { uuid });
+            }
             GetMessageHistoryBefore { jid, mid, count, uuid } => {
                 let msg = AppMessage::Query(Query::MessagesBefore { jid, id: mid.0, count });
                 conn.send_app_message(None, WebsocketMessageMetric::QueryMessages, msg, CallbackType::MessagesBefore { uuid })?;
