@@ -30,7 +30,7 @@ ring = "0.14"
 base64 = "0.10"
 qrcode = "0.10"
 image = { version = "0.21", optional = true }
-untrusted = "~0.6"
+untrusted = "~0.7"
 rust-crypto = "~0.2"
 serde = "1.0"
 serde_derive = "1.0"
